@@ -1,0 +1,2104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Speed Log — Network Analytics</title>
+<style>
+  :root{
+    --bg:#0B1220;
+    --panel:#121A2E;
+    --panel-2:#17213A;
+    --border:#1F2A42;
+    --border-bright:#2C3B5C;
+    --text:#EAF0FB;
+    --text-dim:#8E9BB8;
+    --text-faint:#5C6886;
+    --cyan:#22D3EE;
+    --purple:#A78BFA;
+    --orange:#FB923C;
+    --green:#34D399;
+    --amber:#FBBF24;
+    --red:#F87171;
+    --magenta:#F472B6;
+    --mono: ui-monospace, "JetBrains Mono", "IBM Plex Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;}
+  body{background:var(--bg);color:var(--text);font-family:var(--sans);overflow:hidden;}
+  .mono{font-family:var(--mono);}
+  ::selection{background:rgba(34,211,238,.3);}
+  ::-webkit-scrollbar{width:9px;height:9px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  ::-webkit-scrollbar-thumb{background:var(--border-bright);border-radius:5px;}
+
+  .dashboard{height:100vh;display:flex;flex-direction:column;gap:8px;padding:8px 12px 10px;}
+
+  /* ---- topbar ---- */
+  .topbar{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;gap:14px;}
+  .brand{display:flex;flex-direction:column;}
+  .brand-name{font-size:19px;font-weight:700;letter-spacing:.01em;color:var(--text);}
+  .brand-sub{font-size:11px;color:var(--text-faint);margin-top:1px;font-family:var(--mono);}
+  .topbar-right{display:flex;align-items:center;gap:8px;}
+  .pill{display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;
+    padding:7px 13px;border-radius:999px;background:var(--panel);border:1px solid var(--border);color:var(--text-dim);}
+  .pill-dot{width:7px;height:7px;border-radius:50%;background:var(--text-faint);flex:none;}
+  .pill-dot.idle{background:var(--text-faint);}
+  .pill-dot.monitoring{background:var(--green);animation:statusPulse 1.8s infinite;}
+  .pill-dot.testing{background:var(--amber);animation:statusPulse 1s infinite;}
+  @keyframes statusPulse{
+    0%{box-shadow:0 0 0 0 rgba(52,211,153,.5);} 70%{box-shadow:0 0 0 6px rgba(52,211,153,0);} 100%{box-shadow:0 0 0 0 rgba(52,211,153,0);}
+  }
+  .countdown{color:var(--text-faint);}
+
+  .btn{font-family:var(--mono);font-size:11px;letter-spacing:.03em;padding:8px 14px;border-radius:10px;
+    border:1px solid var(--border-bright);background:var(--panel-2);color:var(--text);cursor:pointer;
+    transition:border-color .1s ease,transform .05s ease;}
+  .btn:hover{border-color:var(--cyan);color:var(--cyan);}
+  .btn:active{transform:translateY(1px);}
+  .btn.primary{background:var(--cyan);border-color:var(--cyan);color:#06222A;font-weight:700;}
+  .btn.primary:hover{opacity:.9;color:#06222A;}
+  .btn.danger{color:var(--red);border-color:var(--red);}
+  .btn.flag-btn{color:var(--magenta);border-color:var(--magenta);}
+  .btn.flag-btn:hover{border-color:var(--magenta);color:var(--magenta);opacity:.85;}
+  .flag-checklist{display:flex;flex-direction:column;gap:7px;margin-bottom:12px;}
+  .flag-checklist .checkfield{margin-bottom:0;}
+  .pill-dot.alarm{background:var(--magenta) !important;animation:alarmPulse .7s infinite !important;}
+  @keyframes alarmPulse{
+    0%{box-shadow:0 0 0 0 rgba(244,114,182,.7);} 70%{box-shadow:0 0 0 8px rgba(244,114,182,0);} 100%{box-shadow:0 0 0 0 rgba(244,114,182,0);}
+  }
+  .btn.danger:hover{border-color:var(--red);color:var(--red);opacity:.85;}
+  .btn.tiny{padding:5px 10px;font-size:10px;border-radius:8px;}
+  .btn:disabled{opacity:.4;cursor:not-allowed;}
+  .btn:focus-visible,input:focus-visible,select:focus-visible,[contenteditable]:focus-visible{
+    outline:2px solid var(--cyan);outline-offset:1px;}
+
+  /* ---- kpi row ---- */
+  .kpi-row{flex:0 0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+  .kpi-card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:7px 11px;
+    display:flex;align-items:center;gap:11px;box-shadow:0 8px 20px -14px rgba(0,0,0,.6);}
+  .kpi-icon{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex:none;}
+  .kpi-icon svg{width:17px;height:17px;}
+  .kpi-body{flex:1;min-width:0;}
+  .kpi-label{font-family:var(--mono);font-size:9px;letter-spacing:.08em;color:var(--text-faint);text-transform:uppercase;}
+  .kpi-value{font-size:20px;font-weight:700;color:var(--text);margin-top:2px;line-height:1.1;}
+  .kpi-value .unit{font-size:10.5px;font-weight:400;color:var(--text-dim);margin-left:3px;}
+  .kpi-delta{font-family:var(--mono);font-size:9.5px;color:var(--text-dim);margin-top:3px;}
+  .kpi-delta.good{color:var(--green);} .kpi-delta.bad{color:var(--red);} .kpi-delta.warn{color:var(--amber);}
+  .kpi-spark{width:64px;height:26px;flex:none;}
+
+  /* ---- generic panel ---- */
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:11px 13px;
+    box-shadow:0 8px 20px -14px rgba(0,0,0,.6);}
+  .panel-title{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-dim);
+    margin:0 0 10px;display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  .panel-title .note{text-transform:none;letter-spacing:0;color:var(--text-faint);font-size:10.5px;}
+
+  .field{display:flex;flex-direction:column;gap:4px;margin-bottom:9px;}
+  .field label{font-family:var(--mono);font-size:9px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);}
+  input[type=number],input[type=text],select{
+    font-family:var(--mono);font-size:12.5px;color:var(--text);background:var(--bg);
+    border:1px solid var(--border-bright);border-radius:8px;padding:6px 7px;width:100%;
+  }
+  input:focus,select:focus{outline:2px solid var(--cyan);outline-offset:0;}
+  .checkfield{display:flex;flex-direction:row;align-items:center;gap:7px;font-size:11px;color:var(--text-dim);margin-bottom:9px;}
+  .checkfield input{width:auto;}
+  .hint{font-family:var(--mono);font-size:10.5px;color:var(--text-faint);line-height:1.6;margin-top:4px;}
+  .result-msg{font-family:var(--mono);font-size:10px;margin-top:5px;min-height:13px;}
+
+  /* ---- main layout ---- */
+  .main-row{flex:1 1 auto;display:grid;grid-template-columns:1fr 390px;gap:10px;min-height:0;overflow:hidden;}
+  .col{min-height:0;display:flex;flex-direction:column;gap:8px;}
+  .col-side{overflow-y:auto;}
+
+  .icon-btn{padding:8px 9px;display:flex;align-items:center;justify-content:center;}
+  .icon-btn svg{width:16px;height:16px;}
+  .link-btn{background:none;border:none;padding:0;font-family:var(--mono);font-size:9.5px;letter-spacing:0;
+    text-transform:none;color:var(--cyan);cursor:pointer;text-decoration:underline;text-underline-offset:2px;}
+  .link-btn:hover{color:var(--text);}
+
+  .modal-backdrop{position:fixed;inset:0;background:rgba(5,9,18,.6);backdrop-filter:blur(2px);
+    display:none;align-items:center;justify-content:center;z-index:50;padding:24px;}
+  .modal-backdrop.open{display:flex;}
+  .modal{background:var(--panel);border:1px solid var(--border-bright);border-radius:16px;width:min(720px,100%);
+    max-height:min(640px,90vh);display:flex;flex-direction:column;box-shadow:0 30px 60px -20px rgba(0,0,0,.7);}
+  .modal-header{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;padding:14px 18px;
+    border-bottom:1px solid var(--border);font-family:var(--mono);font-size:13px;font-weight:700;letter-spacing:.03em;}
+  .modal-close{background:none;border:none;color:var(--text-dim);font-size:15px;cursor:pointer;padding:4px 6px;border-radius:6px;}
+  .modal-close:hover{color:var(--text);background:var(--panel-2);}
+  .modal-body{flex:1;overflow-y:auto;display:grid;grid-template-columns:1fr 1fr;gap:22px;padding:18px;}
+  .modal-body.modal-body-single{display:block;max-width:460px;margin:0 auto;}
+  .modal-col{min-width:0;}
+  .modal-section-title{font-family:var(--mono);font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;
+    color:var(--text-dim);margin-bottom:10px;}
+  @media (max-width:640px){ .modal-body{grid-template-columns:1fr;} }
+
+  .tabs{display:flex;gap:4px;}
+  .tab{font-family:var(--mono);font-size:10.5px;letter-spacing:.03em;text-transform:uppercase;padding:5px 10px;
+    border-radius:7px;border:1px solid var(--border-bright);background:var(--bg);color:var(--text-dim);cursor:pointer;}
+  .tab.active{background:var(--cyan);color:#06222A;border-color:var(--cyan);font-weight:700;}
+
+  /* ---- chart panel ---- */
+  .chart-panel{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;}
+  .chart-canvas-wrap{flex:1 1 auto;min-height:0;position:relative;}
+  canvas#chart{width:100%;height:100%;display:block;cursor:crosshair;}
+  .legend{flex:0 0 auto;display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+  .legend-toggle{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:10.5px;color:var(--text-dim);
+    background:var(--panel-2);border:1px solid var(--border-bright);border-radius:7px;padding:3px 8px;cursor:pointer;}
+  .legend-toggle:hover{border-color:var(--cyan);}
+  .legend-toggle.off{opacity:.35;}
+  .legend-toggle.off .swatch{filter:grayscale(1);}
+  .swatch{width:12px;height:2.5px;display:inline-block;border-radius:2px;}
+  .swatch.dash{background:repeating-linear-gradient(90deg,currentColor 0 4px,transparent 4px 7px);}
+
+  /* ---- health panel ---- */
+  .health-body{display:flex;gap:9px;align-items:flex-start;}
+  canvas#healthRadar{flex:0 0 98px;width:98px;height:98px;}
+  .health-list{flex:1;display:flex;flex-direction:column;gap:7px;min-width:0;}
+  .health-row{display:flex;align-items:flex-start;gap:6px;font-family:var(--mono);font-size:10.5px;}
+  .health-dot{width:7px;height:7px;border-radius:50%;flex:none;margin-top:2px;}
+  .health-dot.good{background:var(--green);} .health-dot.warn{background:var(--amber);}
+  .health-dot.bad{background:var(--red);} .health-dot.na{background:var(--text-faint);}
+  .health-label{color:var(--text-dim);width:70px;flex:none;}
+  .health-text{color:var(--text);flex:1;min-width:0;line-height:1.35;}
+  details.thresholds{margin-top:10px;}
+  details.thresholds summary{font-family:var(--mono);font-size:9.5px;color:var(--text-faint);cursor:pointer;
+    list-style:none;}
+  details.thresholds summary::-webkit-details-marker{display:none;}
+  details.thresholds summary:before{content:"▸ "; }
+  details.thresholds[open] summary:before{content:"▾ ";}
+  .threshold-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px;}
+  .threshold-grid .field{margin-bottom:0;}
+
+  /* ---- mini widgets row ---- */
+  .mini-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  canvas#outcomesDonut{width:100%;height:60px;}
+  .donut-legend{display:flex;flex-direction:column;gap:4px;margin-top:6px;font-family:var(--mono);font-size:10.5px;color:var(--text-dim);}
+  .donut-legend span.sw{width:8px;height:8px;border-radius:2px;display:inline-block;margin-right:5px;}
+  canvas#peakHourChart{width:100%;height:60px;}
+
+  /* ---- stat grid ---- */
+  .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);border:1px solid var(--border);
+    border-radius:10px;overflow:hidden;}
+  .stat-grid .cell{background:var(--panel);padding:8px 9px;}
+  .stat-grid .cell .label{font-family:var(--mono);font-size:8.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--text-faint);}
+  .stat-grid .cell .value{font-family:var(--mono);font-size:16px;font-weight:700;margin-top:2px;}
+  .stat-grid.compact .cell{padding:7px 9px;}
+  .stat-grid.compact .cell .value{font-size:14px;}
+  .summary-text{font-family:var(--mono);font-size:11px;line-height:1.65;color:var(--text-dim);background:var(--bg);
+    border:1px solid var(--border);border-radius:9px;padding:8px;margin-top:9px;}
+
+  /* ---- log ---- */
+  .log-row{flex:0 0 18%;min-height:76px;display:flex;flex-direction:column;}
+  .log-panel{flex:1;display:flex;flex-direction:column;min-height:0;}
+  .table-scroll{flex:1;overflow:auto;border:1px solid var(--border);border-radius:10px;}
+  table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px;}
+  thead th{position:sticky;top:0;background:var(--panel-2);color:var(--text-dim);text-align:left;padding:7px 8px;
+    font-weight:600;letter-spacing:.03em;text-transform:uppercase;font-size:9px;z-index:1;white-space:nowrap;
+    border-bottom:1px solid var(--border-bright);}
+  tbody td{padding:6px 8px;border-bottom:1px solid var(--border);vertical-align:top;color:var(--text);}
+  tbody tr:nth-child(even){background:rgba(255,255,255,.015);}
+  tbody tr.below td:first-child{box-shadow:inset 3px 0 0 var(--amber);}
+  tbody tr.outage{background:rgba(248,113,113,.07);}
+  tbody tr.outage td:first-child{box-shadow:inset 3px 0 0 var(--red);}
+  tbody tr.issue td:first-child{box-shadow:inset 3px 0 0 var(--magenta);}
+  .badge{display:inline-block;font-size:8.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--amber);
+    border:1px solid var(--amber);border-radius:5px;padding:1px 5px;margin-left:6px;}
+  .badge.err{color:var(--text-dim);border-color:var(--text-faint);}
+  .badge.outage{background:var(--red);color:var(--bg);border-color:var(--red);font-weight:700;}
+  .badge.issue{background:var(--magenta);color:var(--bg);border-color:var(--magenta);font-weight:700;}
+  td.device{color:var(--text-dim);white-space:nowrap;max-width:110px;overflow:hidden;text-overflow:ellipsis;}
+  td.notes{min-width:150px;color:var(--text-dim);}
+  td.notes .free[contenteditable=true]{outline:none;display:block;}
+  td.notes .free[contenteditable=true]:focus{background:rgba(34,211,238,.08);}
+  .tags-cell{min-width:140px;}
+  .tag-chip{display:inline-flex;align-items:center;gap:4px;font-size:9px;letter-spacing:.02em;text-transform:uppercase;
+    background:var(--bg);border:1px solid var(--text-faint);color:var(--text-dim);border-radius:999px;padding:1px 7px;
+    margin:0 4px 4px 0;cursor:pointer;}
+  .tag-chip:hover{border-color:var(--red);color:var(--red);}
+  .tag-add{font-family:var(--mono);font-size:9.5px;padding:2px 4px;border:1px dashed var(--border-bright);border-radius:6px;
+    background:var(--bg);color:var(--text-faint);width:100%;}
+  .del{color:var(--text-faint);cursor:pointer;font-family:var(--mono);border:none;background:none;font-size:12px;}
+  .del:hover{color:var(--red);}
+  .empty{padding:20px;text-align:center;color:var(--text-faint);font-size:11.5px;font-family:var(--mono);}
+  .log-footer{flex:0 0 auto;display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;
+    gap:10px;margin-top:8px;}
+  .count{font-family:var(--mono);font-size:10px;color:var(--text-faint);}
+  .method-note{font-family:var(--mono);font-size:9px;color:var(--text-faint);line-height:1.5;max-width:560px;}
+
+  @media (max-width:1060px){
+    html,body{height:auto;overflow:auto;}
+    .dashboard{height:auto;}
+    .kpi-row{grid-template-columns:repeat(2,1fr);}
+    .main-row{grid-template-columns:1fr;overflow:visible;}
+    .col-side{overflow-y:visible;}
+    .chart-panel{min-height:300px;}
+    .log-row{flex:0 0 auto;min-height:360px;}
+  }
+  @media (prefers-reduced-motion: reduce){
+    .pill-dot{animation:none !important;}
+    .btn{transition:none;}
+  }
+</style>
+</head>
+<body>
+<div class="dashboard">
+
+  <div class="topbar">
+    <div class="brand">
+      <span class="brand-name">Speed Log</span>
+      <span class="brand-sub">Live infrastructure performance &amp; ISP evidence</span>
+    </div>
+    <div class="topbar-right">
+      <span class="pill"><span class="pill-dot idle" id="statusDot"></span><span id="statusText">Idle</span><span class="countdown" id="countdown"></span></span>
+      <button class="btn" id="runNow">Run test now</button>
+      <button class="btn flag-btn" id="flagIssue">⚠ Flag issue</button>
+      <button class="btn primary" id="toggleMonitor">Start monitoring</button>
+      <button class="btn icon-btn" id="openSettings" title="Settings" aria-label="Settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="kpi-row">
+    <div class="kpi-card">
+      <div class="kpi-icon" style="background:rgba(45,212,191,.14);color:#2DD4BF;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 12a10 10 0 0 1 20 0"/><path d="M6 12a6 6 0 0 1 12 0"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/></svg>
+      </div>
+      <div class="kpi-body">
+        <div class="kpi-label">Ping</div>
+        <div class="kpi-value" id="hudPing">–<span class="unit">ms</span></div>
+        <div class="kpi-delta" id="deltaPing">–</div>
+      </div>
+      <canvas class="kpi-spark" id="kpiPingSpark"></canvas>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon" style="background:rgba(251,146,60,.14);color:#FB923C;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12h3l2-7 4 14 3-9 2 5h4"/></svg>
+      </div>
+      <div class="kpi-body">
+        <div class="kpi-label">Jitter</div>
+        <div class="kpi-value" id="hudJitter">–<span class="unit">ms</span></div>
+        <div class="kpi-delta" id="deltaJitter">–</div>
+      </div>
+      <canvas class="kpi-spark" id="kpiJitterSpark"></canvas>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon" style="background:rgba(34,211,238,.14);color:#22D3EE;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 19h16"/></svg>
+      </div>
+      <div class="kpi-body">
+        <div class="kpi-label">Download</div>
+        <div class="kpi-value" id="hudDown">–<span class="unit">Mbps</span></div>
+        <div class="kpi-delta" id="deltaDown">–</div>
+      </div>
+      <canvas class="kpi-spark" id="kpiDownSpark"></canvas>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon" style="background:rgba(167,139,250,.14);color:#A78BFA;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V9"/><path d="M7 14l5-5 5 5"/><path d="M4 5h16"/></svg>
+      </div>
+      <div class="kpi-body">
+        <div class="kpi-label">Upload</div>
+        <div class="kpi-value" id="hudUp">–<span class="unit">Mbps</span></div>
+        <div class="kpi-delta" id="deltaUp">–</div>
+      </div>
+      <canvas class="kpi-spark" id="kpiUpSpark"></canvas>
+    </div>
+  </div>
+
+  <div class="main-row">
+
+    <div class="col">
+      <div class="panel chart-panel">
+        <div class="panel-title">
+          Throughput over time
+          <span class="tabs" id="summaryTabs">
+            <span class="tab" data-window="24">24h</span>
+            <span class="tab" data-window="168">7d</span>
+            <span class="tab" data-window="720">30d</span>
+            <span class="tab active" data-window="all">All</span>
+          </span>
+        </div>
+        <div class="chart-canvas-wrap"><canvas id="chart"></canvas></div>
+        <div class="legend" id="chartLegend">
+          <button class="legend-toggle" data-series="down"><span class="swatch" style="background:var(--cyan)"></span>Download</button>
+          <button class="legend-toggle" data-series="up"><span class="swatch" style="background:var(--purple)"></span>Upload</button>
+          <button class="legend-toggle" data-series="downAvg"><span class="swatch dash" style="color:var(--cyan)"></span>Down avg</button>
+          <button class="legend-toggle" data-series="upAvg"><span class="swatch dash" style="color:var(--purple)"></span>Up avg</button>
+          <button class="legend-toggle" data-series="threshold"><span class="swatch dash" style="color:var(--amber)"></span>Plan threshold</button>
+          <button class="legend-toggle" data-series="zone"><span class="swatch" style="background:var(--amber);opacity:.5"></span>Below-plan zone</button>
+          <button class="legend-toggle" data-series="outage"><span class="swatch" style="background:var(--red)"></span>Outage</button>
+          <button class="legend-toggle" data-series="issue"><span class="swatch" style="background:var(--magenta)"></span>Flagged issue</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="col col-side">
+      <div class="panel">
+        <div class="panel-title">Connection health
+          <span class="note"><button class="link-btn" id="openSettingsFromHealth">edit thresholds</button></span>
+        </div>
+        <div class="health-body">
+          <canvas id="healthRadar"></canvas>
+          <div class="health-list" id="healthList"></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="mini-row">
+          <div>
+            <div class="panel-title" style="margin-bottom:4px;">Test outcomes</div>
+            <canvas id="outcomesDonut"></canvas>
+            <div class="donut-legend" id="outcomesLegend"></div>
+          </div>
+          <div>
+            <div class="panel-title" style="margin-bottom:4px;">Download by hour</div>
+            <canvas id="peakHourChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">Summary
+          <span class="note"><button class="link-btn" id="openSummaryModal">full report</button></span>
+        </div>
+        <div class="stat-grid compact" id="statGridCompact"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="log-row">
+    <div class="panel log-panel">
+      <div class="panel-title">Log</div>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th><th>Timestamp</th><th>Device</th><th>Ping</th><th>Jitter</th><th>Down</th><th>Up</th>
+              <th>Alt Down</th><th>Alt Up</th><th>Tags</th><th>Notes</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="logBody"></tbody>
+        </table>
+        <div class="empty" id="emptyMsg">No entries yet — run a test to begin the log.</div>
+      </div>
+      <div class="log-footer">
+        <div class="count" id="entryCount">0 entries</div>
+        <div class="method-note">
+          Primary via Cloudflare; secondary via LibreSpeed-compatible backend when enabled. Outage = primary
+          unreachable for a scheduled test.
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn tiny" id="importCsv">Import CSV</button>
+          <input type="file" id="importCsvFile" accept=".csv" style="display:none;">
+          <button class="btn tiny" id="exportCsv">Export CSV</button>
+          <button class="btn tiny danger" id="clearLog">Clear log</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="settingsBackdrop">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+      <div class="modal-header">
+        <span id="settingsTitle">Settings</span>
+        <button class="modal-close" id="closeSettings" aria-label="Close settings">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-col">
+          <div class="modal-section-title">This device</div>
+          <div class="field">
+            <label for="deviceLabel">Device label (shown on every entry)</label>
+            <input type="text" id="deviceLabel" placeholder="e.g. Dad's laptop, Son — school">
+          </div>
+
+          <div class="modal-section-title" style="margin-top:16px;">Monitoring</div>
+          <div class="field">
+            <label for="interval">Test every (minutes)</label>
+            <input type="number" id="interval" min="1" step="1" value="30">
+          </div>
+          <div class="field">
+            <label for="testSize">Test size</label>
+            <select id="testSize">
+              <option value="quick">Quick (10MB / 2MB)</option>
+              <option value="standard" selected>Standard (25MB / 5MB)</option>
+              <option value="thorough">Thorough (50MB / 10MB)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="planDown">Plan download (Mbps)</label>
+            <input type="number" id="planDown" min="0" step="1" placeholder="e.g. 300">
+          </div>
+          <div class="field">
+            <label for="planUp">Plan upload (Mbps)</label>
+            <input type="number" id="planUp" min="0" step="1" placeholder="e.g. 20">
+          </div>
+          <div class="hint" style="margin:-4px 0 9px;">
+            Plan speeds are usually an "up to" ceiling, not a guarantee — expect some readings below it even on
+            a healthy connection. For a meaningful alarm, use Personal alert thresholds instead →
+          </div>
+          <div class="checkfield">
+            <input type="checkbox" id="heartbeatToggle" checked>
+            <label for="heartbeatToggle" style="text-transform:none;">Live ping pulse</label>
+          </div>
+
+          <div class="modal-section-title" style="margin-top:16px;">Secondary source</div>
+          <div class="checkfield">
+            <input type="checkbox" id="altEnabled">
+            <label for="altEnabled" style="text-transform:none;">Cross-check 2nd provider</label>
+          </div>
+          <div class="field">
+            <label for="altSource">Secondary source</label>
+            <select id="altSource">
+              <option value="speedtestcat">SpeedTestCat (public)</option>
+              <option value="clouvider-atl" selected>Clouvider — Atlanta, US</option>
+              <option value="clouvider-ams">Clouvider — Amsterdam, NL</option>
+              <option value="sharktech-ams">Sharktech — Amsterdam, NL</option>
+              <option value="custom">Custom URL…</option>
+            </select>
+          </div>
+          <div class="field" id="altUrlCustomField" style="display:none;">
+            <label for="altUrlCustom">Custom base URL</label>
+            <input type="text" id="altUrlCustom" placeholder="https://your-server.example.com/backend">
+          </div>
+          <button class="btn tiny" id="testAltSource" style="width:100%;">Test connection</button>
+          <div class="result-msg" id="altTestResult"></div>
+          <div class="hint">
+            Tests use real data — avoid short intervals on a capped plan. Cross-checking roughly doubles data
+            per test. Automatic testing only runs while this tab stays open. Public secondary servers can go
+            down; use Test connection to verify, or paste your own LibreSpeed-compatible URL under Custom.
+          </div>
+        </div>
+
+        <div class="modal-col">
+          <div class="modal-section-title">Connection health thresholds</div>
+          <div class="hint" style="margin:0 0 10px;">
+            These decide the status (healthy / degraded / poor) shown per-dimension in the Connection Health
+            panel — nothing here is a blended score.
+          </div>
+          <div class="threshold-grid">
+            <div class="field"><label for="latencyGood">Latency good ≤ (ms)</label><input type="number" id="latencyGood" value="50" min="0"></div>
+            <div class="field"><label for="latencyPoor">Latency poor &gt; (ms)</label><input type="number" id="latencyPoor" value="150" min="0"></div>
+            <div class="field"><label for="jitterGood">Jitter good ≤ (ms)</label><input type="number" id="jitterGood" value="10" min="0"></div>
+            <div class="field"><label for="jitterPoor">Jitter poor &gt; (ms)</label><input type="number" id="jitterPoor" value="30" min="0"></div>
+            <div class="field" style="grid-column:1 / -1;"><label for="reliabilityThreshold">Max failed tests before degraded (%)</label><input type="number" id="reliabilityThreshold" value="10" min="0" max="100"></div>
+          </div>
+
+          <div class="modal-section-title" style="margin-top:16px;">Personal alert thresholds</div>
+          <div class="hint" style="margin:0 0 10px;">
+            Based on what actually causes problems for you, not your plan's ceiling. Flag an issue a few times
+            when things feel slow, then set these from what you see below.
+          </div>
+          <div class="threshold-grid">
+            <div class="field"><label for="alertDownMbps">Alarm if download below (Mbps)</label><input type="number" id="alertDownMbps" min="0" step="1" placeholder="not set"></div>
+            <div class="field"><label for="alertUpMbps">Alarm if upload below (Mbps)</label><input type="number" id="alertUpMbps" min="0" step="1" placeholder="not set"></div>
+          </div>
+          <div class="checkfield" style="margin-top:9px;">
+            <input type="checkbox" id="enableAlarm">
+            <label for="enableAlarm" style="text-transform:none;">Play an audible alarm when a test result is below these</label>
+          </div>
+          <div class="result-msg" id="alertInsight" style="color:var(--text-dim);"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="summaryBackdrop">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="summaryTitle">
+      <div class="modal-header">
+        <span id="summaryTitle">Full summary report</span>
+        <button class="modal-close" id="closeSummaryModal" aria-label="Close summary">✕</button>
+      </div>
+      <div class="modal-body modal-body-single">
+        <div class="stat-grid" id="statGrid"></div>
+        <div class="summary-text" id="summaryText"></div>
+        <button class="btn tiny" id="copySummary" style="margin-top:10px;width:100%;">Copy summary</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="flagBackdrop">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="flagTitle" style="width:min(460px,100%);">
+      <div class="modal-header">
+        <span id="flagTitle">Flag a slowdown</span>
+        <button class="modal-close" id="closeFlagModal" aria-label="Close">✕</button>
+      </div>
+      <div class="modal-body modal-body-single">
+        <div class="hint" style="margin:0 0 10px;">
+          This runs a speed test right now and marks it as a reported issue, so you can later see what your
+          download/upload actually were when things felt slow.
+        </div>
+        <div class="modal-section-title">What are you seeing? (pick any)</div>
+        <div class="flag-checklist" id="flagChecklist">
+          <label class="checkfield"><input type="checkbox" value="Video lag / frozen call"><span style="text-transform:none;">Video lag / frozen call</span></label>
+          <label class="checkfield"><input type="checkbox" value="Pages slow to load"><span style="text-transform:none;">Pages slow to load</span></label>
+          <label class="checkfield"><input type="checkbox" value="Buffering"><span style="text-transform:none;">Buffering</span></label>
+          <label class="checkfield"><input type="checkbox" value="Disconnected"><span style="text-transform:none;">Disconnected</span></label>
+          <label class="checkfield"><input type="checkbox" value="Game lag"><span style="text-transform:none;">Game lag</span></label>
+          <label class="checkfield"><input type="checkbox" value="Other"><span style="text-transform:none;">Other</span></label>
+        </div>
+        <div class="field" style="margin-top:4px;">
+          <label for="flagNote">Note (optional)</label>
+          <input type="text" id="flagNote" placeholder="anything else worth remembering">
+        </div>
+        <button class="btn primary" id="submitFlag" style="width:100%;margin-top:6px;">Run test &amp; flag it</button>
+        <div class="result-msg" id="flagResult"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var DOWN_HOST = "https://speed.cloudflare.com/__down?bytes=";
+  var UP_URL = "https://speed.cloudflare.com/__up";
+  var PING_URL = "https://speed.cloudflare.com/__down?bytes=0";
+
+  var PING_TIMEOUT = 15000;
+  var DOWNLOAD_TIMEOUT = 60000;
+  var UPLOAD_TIMEOUT = 30000;
+  var HEARTBEAT_INTERVAL = 3000;
+  var HEARTBEAT_TIMEOUT = 4000;
+  var HEARTBEAT_MAX_SAMPLES = 40;
+
+  var C_DOWN = "#22D3EE";
+  var C_UP = "#A78BFA";
+  var C_WARN = "#FBBF24";
+  var C_BAD = "#F87171";
+  var C_GOOD = "#34D399";
+  var C_ISSUE = "#F472B6";
+  var C_GRID = "#1F2A42";
+  var C_AXIS = "#6B7892";
+  var C_GUIDE = "#48566E";
+  var C_TOOLTIP_BG = "#17213A";
+  var C_TOOLTIP_TEXT = "#EAF0FB";
+  var C_PANEL_BG = "#121A2E";
+  var C_FAINT = "#5C6886";
+
+  var SIZES = {
+    quick:    { down: 10 * 1000 * 1000, up: 2 * 1000 * 1000 },
+    standard: { down: 25 * 1000 * 1000, up: 5 * 1000 * 1000 },
+    thorough: { down: 50 * 1000 * 1000, up: 10 * 1000 * 1000 }
+  };
+  var SIZES_ALT = {
+    quick:    { ckSize: 8,  upBytes: 1 * 1000 * 1000 },
+    standard: { ckSize: 15, upBytes: 3 * 1000 * 1000 },
+    thorough: { ckSize: 30, upBytes: 6 * 1000 * 1000 }
+  };
+
+  var TAG_PRESETS = ["Wired","Wi-Fi","Peak hours","Video call","Gaming","Others active","Router reboot"];
+
+  var ALT_SOURCES = {
+    "speedtestcat":   { label: "SpeedTestCat",              base: "https://speedtestcat.com" },
+    "clouvider-atl":  { label: "Clouvider — Atlanta, US",   base: "https://atl.speedtest.clouvider.net/backend" },
+    "clouvider-ams":  { label: "Clouvider — Amsterdam, NL", base: "https://ams.speedtest.clouvider.net/backend" },
+    "sharktech-ams":  { label: "Sharktech — Amsterdam, NL", base: "https://amsspeed.sharktech.net/backend" }
+  };
+
+  var els = {};
+  ["interval","testSize","planDown","planUp","altEnabled","altSource","altUrlCustom","altUrlCustomField",
+   "testAltSource","altTestResult","toggleMonitor","runNow","countdown",
+   "statusDot","statusText","logBody","emptyMsg","entryCount","exportCsv","clearLog","chart",
+   "hudPing","hudJitter","hudDown","hudUp","statGrid","statGridCompact","summaryText","copySummary","summaryTabs","chartLegend",
+   "heartbeatToggle","deltaPing","deltaJitter","deltaDown","deltaUp",
+   "kpiPingSpark","kpiJitterSpark","kpiDownSpark","kpiUpSpark",
+   "healthRadar","healthList","latencyGood","latencyPoor","jitterGood","jitterPoor","reliabilityThreshold",
+   "outcomesDonut","outcomesLegend","peakHourChart","openSummaryModal","closeSummaryModal","summaryBackdrop",
+   "openSettings","closeSettings","settingsBackdrop","openSettingsFromHealth",
+   "deviceLabel","alertDownMbps","alertUpMbps","enableAlarm","alertInsight",
+   "flagIssue","flagBackdrop","closeFlagModal","flagChecklist","flagNote","submitFlag","flagResult","exportCsv","importCsv","importCsvFile"
+  ].forEach(function(id){ els[id] = document.getElementById(id); });
+
+  function currentAltBase(){
+    if(els.altSource.value === "custom"){
+      return els.altUrlCustom.value.replace(/\/$/, "");
+    }
+    var preset = ALT_SOURCES[els.altSource.value];
+    return preset ? preset.base : "";
+  }
+
+  var STORAGE_KEY = "speedlog_entries_v2";
+  var SETTINGS_KEY = "speedlog_settings_v2";
+
+  var entries = [];
+  var monitoring = false;
+  var testing = false;
+  var timerId = null;
+  var countdownId = null;
+  var nextRunAt = null;
+  var summaryWindow = "all";
+  var seriesVisible = { down: true, up: true, downAvg: true, upAvg: true, threshold: true, zone: true, outage: true, issue: true };
+  var heartbeatEnabled = true;
+  var heartbeatSamples = [];
+  var heartbeatTimerId = null;
+  var heartbeatInFlight = false;
+
+  function loadSettings(){
+    try{
+      var s = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}");
+      if(s.interval) els.interval.value = s.interval;
+      if(s.testSize) els.testSize.value = s.testSize;
+      if(s.planDown != null) els.planDown.value = s.planDown;
+      if(s.planUp != null) els.planUp.value = s.planUp;
+      if(s.altEnabled != null) els.altEnabled.checked = s.altEnabled;
+      if(s.altSource) els.altSource.value = s.altSource;
+      if(s.altUrlCustom) els.altUrlCustom.value = s.altUrlCustom;
+      els.altUrlCustomField.style.display = els.altSource.value === "custom" ? "flex" : "none";
+      if(s.seriesVisible){
+        Object.keys(seriesVisible).forEach(function(k){
+          if(s.seriesVisible[k] != null) seriesVisible[k] = s.seriesVisible[k];
+        });
+      }
+      if(s.heartbeatEnabled != null){ heartbeatEnabled = s.heartbeatEnabled; els.heartbeatToggle.checked = heartbeatEnabled; }
+      if(s.latencyGood != null) els.latencyGood.value = s.latencyGood;
+      if(s.latencyPoor != null) els.latencyPoor.value = s.latencyPoor;
+      if(s.jitterGood != null) els.jitterGood.value = s.jitterGood;
+      if(s.jitterPoor != null) els.jitterPoor.value = s.jitterPoor;
+      if(s.reliabilityThreshold != null) els.reliabilityThreshold.value = s.reliabilityThreshold;
+      if(s.deviceLabel != null) els.deviceLabel.value = s.deviceLabel;
+      if(s.alertDownMbps != null) els.alertDownMbps.value = s.alertDownMbps;
+      if(s.alertUpMbps != null) els.alertUpMbps.value = s.alertUpMbps;
+      if(s.enableAlarm != null) els.enableAlarm.checked = s.enableAlarm;
+    }catch(e){}
+  }
+  function saveSettings(){
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({
+      interval: els.interval.value,
+      testSize: els.testSize.value,
+      planDown: els.planDown.value,
+      planUp: els.planUp.value,
+      altEnabled: els.altEnabled.checked,
+      altSource: els.altSource.value,
+      altUrlCustom: els.altUrlCustom.value,
+      seriesVisible: seriesVisible,
+      heartbeatEnabled: heartbeatEnabled,
+      latencyGood: els.latencyGood.value,
+      latencyPoor: els.latencyPoor.value,
+      jitterGood: els.jitterGood.value,
+      jitterPoor: els.jitterPoor.value,
+      reliabilityThreshold: els.reliabilityThreshold.value,
+      deviceLabel: els.deviceLabel.value,
+      alertDownMbps: els.alertDownMbps.value,
+      alertUpMbps: els.alertUpMbps.value,
+      enableAlarm: els.enableAlarm.checked
+    }));
+  }
+  function loadEntries(){
+    try{ entries = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); }
+    catch(e){ entries = []; }
+    entries.forEach(function(e){
+      if(!e.tags) e.tags = [];
+      if(!e.issueReasons) e.issueReasons = [];
+    });
+  }
+  function saveEntries(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(entries)); }
+
+  function setStatus(mode, text){
+    els.statusDot.className = "pill-dot " + mode;
+    els.statusText.textContent = text;
+  }
+  function fmt(n, digits){
+    if(n == null || isNaN(n)) return "–";
+    return n.toFixed(digits == null ? 1 : digits);
+  }
+
+  function updateHud(entry){
+    function set(valueElId, deltaElId, val, unit, goodBad){
+      var valueEl = document.getElementById(valueElId);
+      var deltaEl = document.getElementById(deltaElId);
+      if(val == null || isNaN(val)){
+        valueEl.innerHTML = "–<span class=\"unit\">"+unit+"</span>";
+        if(deltaEl){ deltaEl.textContent = "–"; deltaEl.className = "kpi-delta"; }
+        return;
+      }
+      valueEl.innerHTML = fmt(val, unit === "ms" ? 0 : 1) + "<span class=\"unit\"> "+unit+"</span>";
+      if(deltaEl && goodBad){ deltaEl.textContent = goodBad.text; deltaEl.className = "kpi-delta " + goodBad.cls; }
+    }
+    var planDown = parseFloat(els.planDown.value);
+    var planUp = parseFloat(els.planUp.value);
+    set("hudPing","deltaPing", entry ? entry.ping : null, "ms", entry && entry.ping != null ? pingDeltaText(entry.ping) : null);
+    set("hudJitter","deltaJitter", entry ? entry.jitter : null, "ms", entry && entry.jitter != null ? jitterDeltaText(entry.jitter) : null);
+    set("hudDown","deltaDown", entry ? entry.down : null, "Mbps",
+      entry && !isNaN(planDown) && entry.down != null ? planDeltaText(entry.down, planDown) : null);
+    set("hudUp","deltaUp", entry ? entry.up : null, "Mbps",
+      entry && !isNaN(planUp) && entry.up != null ? planDeltaText(entry.up, planUp) : null);
+  }
+  function planDeltaText(val, plan){
+    var pct = Math.round((val/plan)*100);
+    if(pct >= 90) return { text: pct+"% of plan", cls: "good" };
+    if(pct >= 50) return { text: pct+"% of plan", cls: "warn" };
+    return { text: pct+"% of plan", cls: "bad" };
+  }
+  function pingDeltaText(val){
+    var good = parseFloat(els.latencyGood.value)||50, poor = parseFloat(els.latencyPoor.value)||150;
+    if(val<=good) return { text:"healthy range", cls:"good" };
+    if(val<=poor) return { text:"elevated", cls:"warn" };
+    return { text:"high latency", cls:"bad" };
+  }
+  function jitterDeltaText(val){
+    var good = parseFloat(els.jitterGood.value)||10, poor = parseFloat(els.jitterPoor.value)||30;
+    if(val<=good) return { text:"stable", cls:"good" };
+    if(val<=poor) return { text:"variable", cls:"warn" };
+    return { text:"unstable", cls:"bad" };
+  }
+
+  // ---------- helpers ----------
+
+  function withTimeout(promise, ms, label){
+    return new Promise(function(resolve, reject){
+      var done = false;
+      var t = setTimeout(function(){
+        if(done) return; done = true;
+        reject(new Error((label||"Request") + " timed out"));
+      }, ms);
+      promise.then(function(v){
+        if(done) return; done = true; clearTimeout(t); resolve(v);
+      }, function(e){
+        if(done) return; done = true; clearTimeout(t); reject(e);
+      });
+    });
+  }
+
+  function drawSparkline(canvas, values, color){
+    var dpr = window.devicePixelRatio || 1;
+    var cssWidth = canvas.clientWidth || 76;
+    var cssHeight = canvas.clientHeight || 38;
+    canvas.width = cssWidth * dpr; canvas.height = cssHeight * dpr;
+    var ctx = canvas.getContext("2d");
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    ctx.clearRect(0,0,cssWidth,cssHeight);
+    var vals = values.filter(function(v){ return v != null; });
+    if(vals.length < 2) return;
+    var maxV = Math.max.apply(null, vals), minV = Math.min.apply(null, vals);
+    if(maxV === minV){ maxV += 1; minV -= 1; }
+    var n = values.length;
+    function xFor(i){ return n===1 ? cssWidth/2 : cssWidth*i/(n-1); }
+    function yFor(v){ return cssHeight - 3 - ((v-minV)/(maxV-minV)) * (cssHeight-6); }
+    // gradient fill
+    var grad = ctx.createLinearGradient(0,0,0,cssHeight);
+    grad.addColorStop(0, color+"55"); grad.addColorStop(1, color+"00");
+    ctx.beginPath();
+    var started=false, lastX=0;
+    values.forEach(function(v,i){
+      if(v==null) return;
+      var x=xFor(i), y=yFor(v);
+      if(!started){ ctx.moveTo(x,y); started=true; } else { ctx.lineTo(x,y); }
+      lastX=x;
+    });
+    ctx.lineTo(lastX, cssHeight); ctx.lineTo(xFor(0), cssHeight); ctx.closePath();
+    ctx.fillStyle = grad; ctx.fill();
+    ctx.beginPath(); started=false;
+    values.forEach(function(v,i){
+      if(v==null) return;
+      var x=xFor(i), y=yFor(v);
+      if(!started){ ctx.moveTo(x,y); started=true; } else { ctx.lineTo(x,y); }
+    });
+    ctx.strokeStyle = color; ctx.lineWidth = 1.6; ctx.stroke();
+  }
+
+  function renderKpiSparks(){
+    var recent = entries.slice(-20);
+    drawSparkline(els.kpiPingSpark, heartbeatSamples.length>=2 ? heartbeatSamples.slice(-20) : recent.map(function(e){return e.ping;}), "#2DD4BF");
+    drawSparkline(els.kpiJitterSpark, recent.map(function(e){return e.jitter;}), "#FB923C");
+    drawSparkline(els.kpiDownSpark, recent.map(function(e){return e.down;}), C_DOWN);
+    drawSparkline(els.kpiUpSpark, recent.map(function(e){return e.up;}), C_UP);
+  }
+
+  // ---------- live telemetry: heartbeat + in-test meter ----------
+
+  function showLiveIdle(){ /* kept for API parity; KPI tiles show last logged reading, heartbeat only feeds sparkline */ }
+
+  function heartbeatTick(){
+    if(!heartbeatEnabled || testing){ scheduleHeartbeat(); return; }
+    if(heartbeatInFlight){ scheduleHeartbeat(); return; }
+    heartbeatInFlight = true;
+    var t0 = performance.now();
+    withTimeout(fetch(PING_URL, { cache: "no-store" }).then(function(r){ return r.arrayBuffer(); }), HEARTBEAT_TIMEOUT, "Heartbeat")
+      .then(function(){
+        heartbeatSamples.push(performance.now() - t0);
+      }).catch(function(){
+        heartbeatSamples.push(null);
+      }).then(function(){
+        if(heartbeatSamples.length > HEARTBEAT_MAX_SAMPLES) heartbeatSamples.shift();
+        heartbeatInFlight = false;
+        if(!testing) renderKpiSparks();
+        scheduleHeartbeat();
+      });
+  }
+  function scheduleHeartbeat(){ clearTimeout(heartbeatTimerId); heartbeatTimerId = setTimeout(heartbeatTick, HEARTBEAT_INTERVAL); }
+  function startHeartbeat(){ clearTimeout(heartbeatTimerId); heartbeatTick(); }
+  function stopHeartbeat(){ clearTimeout(heartbeatTimerId); heartbeatInFlight = false; }
+
+  // ---------- speed test primitives ----------
+
+  function pingTest(){
+    var samples = [];
+    var rounds = 6;
+    function roundTrip(){
+      var t0 = performance.now();
+      return fetch(PING_URL, { cache: "no-store" }).then(function(r){
+        return r.arrayBuffer();
+      }).then(function(){
+        samples.push(performance.now() - t0);
+      });
+    }
+    var p = Promise.resolve();
+    for(var i=0;i<rounds;i++){ p = p.then(roundTrip); }
+    return withTimeout(p, PING_TIMEOUT, "Ping test").then(function(){
+      var used = samples.slice(1);
+      if(used.length === 0) used = samples;
+      var avg = used.reduce(function(a,b){return a+b;},0) / used.length;
+      var jitterSum = 0;
+      for(var i=1;i<used.length;i++){ jitterSum += Math.abs(used[i]-used[i-1]); }
+      var jitter = used.length > 1 ? jitterSum / (used.length-1) : 0;
+      return { ping: avg, jitter: jitter };
+    });
+  }
+
+  function downloadTest(url, onProgress){
+    var p = fetch(url, { cache: "no-store" }).then(function(resp){
+      if(!resp.ok || !resp.body) throw new Error("Download test failed (HTTP " + resp.status + ")");
+      var reader = resp.body.getReader();
+      var received = 0;
+      var t0 = performance.now();
+      var lastTick = t0;
+      function pump(){
+        return reader.read().then(function(res){
+          if(res.done){
+            var seconds = (performance.now() - t0) / 1000;
+            return (received * 8) / seconds / 1e6;
+          }
+          received += res.value.length;
+          if(onProgress){
+            var now = performance.now();
+            if(now - lastTick > 150){
+              onProgress((received * 8) / ((now - t0)/1000) / 1e6);
+              lastTick = now;
+            }
+          }
+          return pump();
+        });
+      }
+      return pump();
+    });
+    return withTimeout(p, DOWNLOAD_TIMEOUT, "Download test");
+  }
+
+  function uploadTest(url, bytes, onProgress){
+    var p = new Promise(function(resolve, reject){
+      var data = new Uint8Array(bytes);
+      for(var i=0;i<data.length;i+=997){ data[i] = (i * 37) % 256; }
+      var blob = new Blob([data]);
+      var xhr = new XMLHttpRequest();
+      xhr.open("POST", url + (url.indexOf("?")>-1?"&":"?") + "_=" + Date.now(), true);
+      var t0 = null;
+      xhr.upload.addEventListener("loadstart", function(){ t0 = performance.now(); });
+      if(onProgress){
+        xhr.upload.addEventListener("progress", function(ev){
+          if(t0 == null || !ev.lengthComputable) return;
+          var elapsed = (performance.now() - t0) / 1000;
+          if(elapsed > 0.05){ onProgress((ev.loaded * 8) / elapsed / 1e6); }
+        });
+      }
+      xhr.upload.addEventListener("load", function(){
+        var seconds = (performance.now() - t0) / 1000;
+        resolve((bytes * 8) / seconds / 1e6);
+      });
+      xhr.upload.addEventListener("error", function(){ reject(new Error("Upload test failed")); });
+      xhr.onerror = function(){ reject(new Error("Upload test failed")); };
+      xhr.onload = function(){ if(xhr.status >= 400) reject(new Error("Upload test failed (HTTP " + xhr.status + ")")); };
+      xhr.send(blob);
+    });
+    return withTimeout(p, UPLOAD_TIMEOUT, "Upload test");
+  }
+
+  function runSecondary(size2){
+    var base = currentAltBase();
+    if(!base) return Promise.reject(new Error("No secondary source URL set"));
+    var downUrl = base + "/garbage.php?ckSize=" + size2.ckSize;
+    var upUrl = base + "/empty.php";
+    return downloadTest(downUrl).then(function(down){
+      return uploadTest(upUrl, size2.upBytes).then(function(up){
+        return { down: down, up: up };
+      });
+    });
+  }
+
+  var pendingFlag = null;
+
+  function playAlarm(){
+    try{
+      var Ctx = window.AudioContext || window.webkitAudioContext;
+      if(!Ctx) return;
+      var ctx = new Ctx();
+      function beep(startAt, freq){
+        var osc = ctx.createOscillator();
+        var gain = ctx.createGain();
+        osc.type = "square";
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.0001, startAt);
+        gain.gain.exponentialRampToValueAtTime(0.18, startAt + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, startAt + 0.22);
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.start(startAt); osc.stop(startAt + 0.25);
+      }
+      var now = ctx.currentTime;
+      beep(now, 880); beep(now + 0.3, 880); beep(now + 0.6, 1046);
+      setTimeout(function(){ ctx.close(); }, 1200);
+    }catch(e){}
+  }
+  function flashAlarmPill(){
+    els.statusDot.classList.add("alarm");
+    setTimeout(function(){
+      els.statusDot.classList.remove("alarm");
+      setStatus(monitoring ? "monitoring" : "idle", monitoring ? "Monitoring" : "Idle");
+    }, 6000);
+  }
+  function checkAlarm(entry){
+    if(!els.enableAlarm.checked) return;
+    var alertDown = parseFloat(els.alertDownMbps.value);
+    var alertUp = parseFloat(els.alertUpMbps.value);
+    var hit = (!isNaN(alertDown) && entry.down != null && entry.down < alertDown) ||
+              (!isNaN(alertUp) && entry.up != null && entry.up < alertUp);
+    if(hit){
+      playAlarm();
+      flashAlarmPill();
+    }
+  }
+
+  function runTest(){
+    if(testing) return Promise.resolve();
+    testing = true;
+    setStatus("testing", "Testing…");
+    els.runNow.disabled = true;
+
+    var sizeKey = els.testSize.value;
+    var size = SIZES[sizeKey] || SIZES.standard;
+    var size2 = SIZES_ALT[sizeKey] || SIZES_ALT.standard;
+    var flag = pendingFlag;
+    pendingFlag = null;
+    var entry = {
+      ts: new Date().toISOString(),
+      device: (els.deviceLabel.value || "").trim(),
+      ping: null, jitter: null, down: null, up: null,
+      down2: null, up2: null, altError: null,
+      outage: false, error: null, notes: "", tags: [],
+      issue: !!flag, issueReasons: flag ? flag.reasons : [], issueNote: flag ? flag.note : ""
+    };
+
+    return pingTest().then(function(p){
+      entry.ping = p.ping; entry.jitter = p.jitter;
+      return downloadTest(DOWN_HOST + size.down + "&_=" + Date.now());
+    }).then(function(down){
+      entry.down = down;
+      return uploadTest(UP_URL, size.up);
+    }).then(function(up){
+      entry.up = up;
+      if(els.altEnabled.checked){
+        return runSecondary(size2).then(function(res){
+          entry.down2 = res.down; entry.up2 = res.up;
+        }).catch(function(err){
+          entry.altError = (err && err.message) || "Secondary source failed";
+        });
+      }
+    }).catch(function(err){
+      entry.error = (err && err.message) || "Test failed";
+      if(entry.ping == null){ entry.outage = true; }
+    }).then(function(){
+      entries.push(entry);
+      saveEntries();
+      renderAll();
+      testing = false;
+      els.runNow.disabled = false;
+      setStatus(monitoring ? "monitoring" : "idle",
+        monitoring ? "Monitoring" : "Idle");
+      if(heartbeatEnabled) startHeartbeat();
+      checkAlarm(entry);
+      return entry;
+    });
+  }
+
+  // ---------- scheduling ----------
+
+  function scheduleNext(){
+    var minutes = Math.max(1, parseFloat(els.interval.value) || 30);
+    nextRunAt = Date.now() + minutes * 60000;
+    clearTimeout(timerId);
+    timerId = setTimeout(function(){
+      runTest().then(function(){ if(monitoring) scheduleNext(); });
+    }, minutes * 60000);
+    startCountdown();
+  }
+  function startCountdown(){
+    clearInterval(countdownId);
+    countdownId = setInterval(function(){
+      if(!monitoring || !nextRunAt){ els.countdown.textContent = ""; return; }
+      var remain = Math.max(0, nextRunAt - Date.now());
+      var m = Math.floor(remain / 60000);
+      var s = Math.floor((remain % 60000) / 1000);
+      els.countdown.textContent = " · next " + m + "m " + (s < 10 ? "0" : "") + s + "s";
+    }, 1000);
+  }
+  function startMonitoring(){
+    monitoring = true;
+    els.toggleMonitor.textContent = "Stop monitoring";
+    setStatus("monitoring", "Monitoring");
+    saveSettings();
+    runTest().then(function(){ if(monitoring) scheduleNext(); });
+  }
+  function stopMonitoring(){
+    monitoring = false;
+    clearTimeout(timerId);
+    clearInterval(countdownId);
+    els.countdown.textContent = "";
+    els.toggleMonitor.textContent = "Start monitoring";
+    setStatus("idle", "Idle");
+  }
+
+  // ---------- summary ----------
+
+  function median(arr){
+    if(!arr.length) return null;
+    var s = arr.slice().sort(function(a,b){return a-b;});
+    var mid = Math.floor(s.length/2);
+    return s.length % 2 ? s[mid] : (s[mid-1]+s[mid])/2;
+  }
+
+  function windowCutoff(){
+    var windowHours = summaryWindow === "all" ? null : parseFloat(summaryWindow);
+    return windowHours == null ? 0 : Date.now() - windowHours*3600000;
+  }
+  function windowedEntries(){
+    var cutoff = windowCutoff();
+    return entries.filter(function(e){ return new Date(e.ts).getTime() >= cutoff; });
+  }
+
+  function computeStats(windowHours){
+    var cutoff = windowHours === "all" ? 0 : Date.now() - windowHours*3600000;
+    var subset = entries.filter(function(e){ return new Date(e.ts).getTime() >= cutoff; });
+    var downs = subset.filter(function(e){ return e.down != null; }).map(function(e){ return e.down; });
+    var ups = subset.filter(function(e){ return e.up != null; }).map(function(e){ return e.up; });
+    var outages = subset.filter(function(e){ return e.outage; });
+
+    var downtimeMs = 0;
+    for(var i=0;i<entries.length;i++){
+      if(entries[i].outage){
+        var start = new Date(entries[i].ts).getTime();
+        var j = i;
+        while(j+1 < entries.length && entries[j+1].outage){ j++; }
+        var end = (j+1 < entries.length) ? new Date(entries[j+1].ts).getTime() : Date.now();
+        if(end >= cutoff){ downtimeMs += Math.max(0, end - Math.max(start, cutoff)); }
+        i = j;
+      }
+    }
+
+    var planDown = parseFloat(els.planDown.value);
+    var planUp = parseFloat(els.planUp.value);
+    var belowDownPct = (!isNaN(planDown) && downs.length) ?
+      (downs.filter(function(v){return v < planDown*0.8;}).length / downs.length * 100) : null;
+    var belowUpPct = (!isNaN(planUp) && ups.length) ?
+      (ups.filter(function(v){return v < planUp*0.8;}).length / ups.length * 100) : null;
+
+    return {
+      count: subset.length,
+      outageCount: outages.length,
+      downtimeMs: downtimeMs,
+      avgDown: downs.length ? downs.reduce(function(a,b){return a+b;},0)/downs.length : null,
+      medDown: median(downs),
+      minDown: downs.length ? Math.min.apply(null, downs) : null,
+      avgUp: ups.length ? ups.reduce(function(a,b){return a+b;},0)/ups.length : null,
+      medUp: median(ups),
+      minUp: ups.length ? Math.min.apply(null, ups) : null,
+      belowDownPct: belowDownPct,
+      belowUpPct: belowUpPct,
+      subset: subset
+    };
+  }
+
+  function fmtDuration(ms){
+    var mins = Math.round(ms/60000);
+    if(mins < 60) return mins + "m";
+    var h = Math.floor(mins/60), m = mins%60;
+    return h + "h " + m + "m";
+  }
+
+  function renderSummary(){
+    var stats = computeStats(summaryWindow === "all" ? "all" : parseFloat(summaryWindow));
+    var cells = [
+      ["Tests run", stats.count],
+      ["Outage events", stats.outageCount],
+      ["Est. downtime", stats.downtimeMs ? fmtDuration(stats.downtimeMs) : "0m"],
+      ["Below plan (down)", stats.belowDownPct != null ? Math.round(stats.belowDownPct)+"%" : "–"],
+      ["Avg download", stats.avgDown != null ? fmt(stats.avgDown,1)+" Mbps" : "–"],
+      ["Median download", stats.medDown != null ? fmt(stats.medDown,1)+" Mbps" : "–"],
+      ["Worst download", stats.minDown != null ? fmt(stats.minDown,1)+" Mbps" : "–"],
+      ["Avg upload", stats.avgUp != null ? fmt(stats.avgUp,1)+" Mbps" : "–"]
+    ];
+    els.statGrid.innerHTML = cells.map(function(c){
+      return "<div class=\"cell\"><div class=\"label\">"+c[0]+"</div><div class=\"value\">"+c[1]+"</div></div>";
+    }).join("");
+    var compactCells = [
+      ["Tests run", stats.count],
+      ["Outages", stats.outageCount],
+      ["Avg down", stats.avgDown != null ? fmt(stats.avgDown,0)+" Mbps" : "–"],
+      ["Avg up", stats.avgUp != null ? fmt(stats.avgUp,0)+" Mbps" : "–"]
+    ];
+    els.statGridCompact.innerHTML = compactCells.map(function(c){
+      return "<div class=\"cell\"><div class=\"label\">"+c[0]+"</div><div class=\"value\">"+c[1]+"</div></div>";
+    }).join("");
+
+    var planDown = parseFloat(els.planDown.value);
+    var planUp = parseFloat(els.planUp.value);
+    var windowLabel = summaryWindow === "all" ? "all logged history" : "the last " +
+      (summaryWindow === "24" ? "24 hours" : summaryWindow === "168" ? "7 days" : "30 days");
+    var lines = [];
+    if(stats.count === 0){
+      lines.push("No tests recorded in " + windowLabel + " yet.");
+    } else {
+      lines.push("Over " + windowLabel + ", " + stats.count + " speed test" + (stats.count===1?"":"s") + " ran" +
+        (stats.outageCount ? ", including " + stats.outageCount + " outage event" + (stats.outageCount===1?"":"s") +
+        " (about " + fmtDuration(stats.downtimeMs) + " of estimated downtime)." : " with no full outages."));
+      if(stats.avgDown != null){
+        lines.push("Average download was " + fmt(stats.avgDown,1) + " Mbps (median " + fmt(stats.medDown,1) +
+          ", worst " + fmt(stats.minDown,1) + " Mbps)" + (!isNaN(planDown) ? ", against a plan speed of " + planDown + " Mbps" : "") + ".");
+      }
+      if(stats.avgUp != null){
+        lines.push("Average upload was " + fmt(stats.avgUp,1) + " Mbps (median " + fmt(stats.medUp,1) +
+          ", worst " + fmt(stats.minUp,1) + " Mbps)" + (!isNaN(planUp) ? ", against a plan speed of " + planUp + " Mbps" : "") + ".");
+      }
+      if(stats.belowDownPct != null){
+        lines.push(Math.round(stats.belowDownPct) + "% of download tests fell below 80% of the plan speed.");
+      }
+      if(stats.belowUpPct != null){
+        lines.push(Math.round(stats.belowUpPct) + "% of upload tests fell below 80% of the plan speed.");
+      }
+    }
+    els.summaryText.textContent = lines.join(" ");
+  }
+
+  // ---------- connection health ----------
+
+  function clampPct(v){ return Math.max(0, Math.min(100, v)); }
+
+  function lowerIsBetterPct(val, good, poor){
+    if(val == null) return null;
+    if(val <= good) return 100;
+    if(val >= poor) return 5;
+    return clampPct(100 - ((val-good)/(poor-good))*95);
+  }
+  function statusForPct(pct){
+    if(pct == null) return "na";
+    if(pct >= 80) return "good";
+    if(pct >= 40) return "warn";
+    return "bad";
+  }
+
+  function computeHealth(){
+    var latest = entries.length ? entries[entries.length-1] : null;
+    var latGood = parseFloat(els.latencyGood.value)||50, latPoor = parseFloat(els.latencyPoor.value)||150;
+    var jitGood = parseFloat(els.jitterGood.value)||10, jitPoor = parseFloat(els.jitterPoor.value)||30;
+    var relThresh = parseFloat(els.reliabilityThreshold.value)||10;
+    var planDown = parseFloat(els.planDown.value), planUp = parseFloat(els.planUp.value);
+
+    var dims = [];
+
+    if(!isNaN(planDown)){
+      var dv = latest ? latest.down : null;
+      var pct = dv != null ? clampPct((dv/planDown)*100) : null;
+      var st = dv == null ? "na" : (dv >= planDown*0.9 ? "good" : (dv >= planDown*0.5 ? "warn" : "bad"));
+      dims.push({ key:"download", label:"Download", pct: pct==null?0:pct, status: st,
+        text: dv!=null ? Math.round((dv/planDown)*100)+"% of "+planDown+" Mbps plan" : "no reading yet",
+        full: dv!=null ? fmt(dv,0)+" Mbps — "+Math.round((dv/planDown)*100)+"% of "+planDown+" Mbps plan" : "no reading yet" });
+    } else {
+      dims.push({ key:"download", label:"Download", pct:50, status:"na", text:"no plan speed set", full:"set a plan speed to include this dimension" });
+    }
+
+    if(!isNaN(planUp)){
+      var uv = latest ? latest.up : null;
+      var upct = uv != null ? clampPct((uv/planUp)*100) : null;
+      var ust = uv == null ? "na" : (uv >= planUp*0.9 ? "good" : (uv >= planUp*0.5 ? "warn" : "bad"));
+      dims.push({ key:"upload", label:"Upload", pct: upct==null?0:upct, status: ust,
+        text: uv!=null ? Math.round((uv/planUp)*100)+"% of "+planUp+" Mbps plan" : "no reading yet",
+        full: uv!=null ? fmt(uv,0)+" Mbps — "+Math.round((uv/planUp)*100)+"% of "+planUp+" Mbps plan" : "no reading yet" });
+    } else {
+      dims.push({ key:"upload", label:"Upload", pct:50, status:"na", text:"no plan speed set", full:"set a plan speed to include this dimension" });
+    }
+
+    var pv = latest ? latest.ping : null;
+    var ppct = lowerIsBetterPct(pv, latGood, latPoor);
+    dims.push({ key:"latency", label:"Latency", pct: ppct==null?0:ppct, status: statusForPct(ppct),
+      text: pv!=null ? fmt(pv,0)+"ms (good ≤"+latGood+", poor >"+latPoor+")" : "no reading yet",
+      full: pv!=null ? fmt(pv,0)+"ms — healthy ≤"+latGood+"ms, poor >"+latPoor+"ms" : "no reading yet" });
+
+    var jv = latest ? latest.jitter : null;
+    var jpct = lowerIsBetterPct(jv, jitGood, jitPoor);
+    dims.push({ key:"jitter", label:"Jitter", pct: jpct==null?0:jpct, status: statusForPct(jpct),
+      text: jv!=null ? fmt(jv,0)+"ms (good ≤"+jitGood+", poor >"+jitPoor+")" : "no reading yet",
+      full: jv!=null ? fmt(jv,0)+"ms — healthy ≤"+jitGood+"ms, poor >"+jitPoor+"ms" : "no reading yet" });
+
+    var windowed = windowedEntries();
+    var failCount = windowed.filter(function(e){ return e.outage || e.error; }).length;
+    var failPct = windowed.length ? (failCount/windowed.length*100) : 0;
+    var relPct = windowed.length ? clampPct(100 - (failPct/relThresh)*50) : null;
+    var relStatus = windowed.length === 0 ? "na" : (failPct <= relThresh ? (failPct===0?"good":"warn") : "bad");
+    dims.push({ key:"reliability", label:"Reliability", pct: relPct==null?0:relPct, status: relStatus,
+      text: windowed.length ? Math.round(100-failPct)+"% succeeded (max "+relThresh+"% fail)" : "no tests in range",
+      full: windowed.length ? Math.round(100-failPct)+"% of tests succeeded — degraded above "+relThresh+"% failed" : "no tests in range yet" });
+
+    return dims;
+  }
+
+  function renderHealth(){
+    var dims = computeHealth();
+    els.healthList.innerHTML = dims.map(function(d){
+      return "<div class=\"health-row\"><span class=\"health-dot "+d.status+"\"></span>" +
+        "<span class=\"health-label\">"+d.label+"</span><span class=\"health-text\" title=\""+d.full.replace(/"/g,'&quot;')+"\">"+d.text+"</span></div>";
+    }).join("");
+
+    var canvas = els.healthRadar;
+    var dpr = window.devicePixelRatio || 1;
+    var size = canvas.clientWidth || 128;
+    canvas.width = size*dpr; canvas.height = size*dpr;
+    var ctx = canvas.getContext("2d");
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    ctx.clearRect(0,0,size,size);
+    var cx = size/2, cy = size/2, r = size/2 - 14;
+    var n = dims.length;
+    function angle(i){ return -Math.PI/2 + i*(2*Math.PI/n); }
+    function pt(i, pct){ var a=angle(i); var rr=r*pct/100; return [cx+rr*Math.cos(a), cy+rr*Math.sin(a)]; }
+
+    ctx.strokeStyle = C_GRID; ctx.lineWidth = 1;
+    [25,50,75,100].forEach(function(ring){
+      ctx.beginPath();
+      for(var i=0;i<=n;i++){ var p=pt(i%n,ring); if(i===0) ctx.moveTo(p[0],p[1]); else ctx.lineTo(p[0],p[1]); }
+      ctx.stroke();
+    });
+    for(var i=0;i<n;i++){
+      var p = pt(i,100);
+      ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(p[0],p[1]); ctx.stroke();
+      ctx.fillStyle = C_FAINT; ctx.font = "9px ui-monospace, monospace";
+      var lp = pt(i, 118);
+      ctx.textAlign = Math.abs(lp[0]-cx)<4 ? "center" : (lp[0]>cx ? "left" : "right");
+      ctx.fillText(dims[i].label.slice(0,4), lp[0], lp[1]+3);
+    }
+
+    ctx.beginPath();
+    dims.forEach(function(d,i){ var p=pt(i,d.pct); if(i===0) ctx.moveTo(p[0],p[1]); else ctx.lineTo(p[0],p[1]); });
+    ctx.closePath();
+    ctx.fillStyle = "rgba(34,211,238,0.14)"; ctx.fill();
+    ctx.strokeStyle = C_DOWN; ctx.lineWidth = 1.6; ctx.stroke();
+    dims.forEach(function(d,i){
+      var p = pt(i,d.pct);
+      ctx.beginPath(); ctx.arc(p[0],p[1],2.4,0,Math.PI*2);
+      ctx.fillStyle = d.status==="good"?C_GOOD:d.status==="warn"?C_WARN:d.status==="bad"?C_BAD:C_FAINT;
+      ctx.fill();
+    });
+    ctx.textAlign = "left";
+  }
+
+  // ---------- outcomes donut ----------
+
+  function classifyEntry(e){
+    if(e.outage) return "outage";
+    if(e.error) return "error";
+    var planDown = parseFloat(els.planDown.value), planUp = parseFloat(els.planUp.value);
+    var below = (!isNaN(planDown) && e.down != null && e.down < planDown*0.8) ||
+                (!isNaN(planUp) && e.up != null && e.up < planUp*0.8);
+    return below ? "below" : "healthy";
+  }
+
+  function renderOutcomes(){
+    var windowed = windowedEntries();
+    var counts = { healthy:0, below:0, error:0, outage:0 };
+    windowed.forEach(function(e){ counts[classifyEntry(e)]++; });
+    var total = windowed.length || 1;
+    var cats = [
+      { key:"healthy", label:"Healthy", color:C_GOOD },
+      { key:"below", label:"Below plan", color:C_WARN },
+      { key:"outage", label:"Outage", color:C_BAD },
+      { key:"error", label:"Error", color:C_FAINT }
+    ];
+
+    var canvas = els.outcomesDonut;
+    var dpr = window.devicePixelRatio || 1;
+    var w = canvas.clientWidth || 140, h = canvas.clientHeight || 92;
+    canvas.width = w*dpr; canvas.height = h*dpr;
+    var ctx = canvas.getContext("2d");
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    ctx.clearRect(0,0,w,h);
+    var cx = w/2, cy = h/2, rOuter = Math.min(w,h)/2 - 4, rInner = rOuter*0.6;
+    var start = -Math.PI/2;
+    if(windowed.length === 0){
+      ctx.strokeStyle = C_GRID; ctx.lineWidth = rOuter-rInner;
+      ctx.beginPath(); ctx.arc(cx,cy,(rOuter+rInner)/2,0,Math.PI*2); ctx.stroke();
+    } else {
+      cats.forEach(function(c){
+        var frac = counts[c.key]/total;
+        if(frac<=0) return;
+        var end = start + frac*Math.PI*2;
+        ctx.beginPath();
+        ctx.arc(cx,cy,(rOuter+rInner)/2, start, end);
+        ctx.lineWidth = rOuter-rInner; ctx.strokeStyle = c.color; ctx.stroke();
+        start = end;
+      });
+    }
+    ctx.fillStyle = C_TOOLTIP_TEXT; ctx.font = "15px ui-monospace, monospace"; ctx.textAlign="center";
+    ctx.fillText(windowed.length ? Math.round(counts.healthy/total*100)+"%" : "–", cx, cy+1);
+    ctx.font = "8px ui-monospace, monospace"; ctx.fillStyle = C_FAINT;
+    ctx.fillText("HEALTHY", cx, cy+12);
+    ctx.textAlign = "left";
+
+    els.outcomesLegend.innerHTML = cats.map(function(c){
+      return "<div><span class=\"sw\" style=\"background:"+c.color+"\"></span>"+c.label+" "+counts[c.key]+"</div>";
+    }).join("");
+  }
+
+  // ---------- peak hour chart ----------
+
+  function renderPeakHours(){
+    var windowed = windowedEntries();
+    var buckets = [
+      {label:"12A", lo:0, hi:4}, {label:"4A", lo:4, hi:8}, {label:"8A", lo:8, hi:12},
+      {label:"12P", lo:12, hi:16}, {label:"4P", lo:16, hi:20}, {label:"8P", lo:20, hi:24}
+    ];
+    buckets.forEach(function(b){ b.sum=0; b.n=0; });
+    windowed.forEach(function(e){
+      if(e.down == null) return;
+      var h = new Date(e.ts).getHours();
+      var b = buckets.filter(function(bb){ return h>=bb.lo && h<bb.hi; })[0];
+      if(b){ b.sum += e.down; b.n++; }
+    });
+
+    var canvas = els.peakHourChart;
+    var dpr = window.devicePixelRatio || 1;
+    var w = canvas.clientWidth || 140, h = canvas.clientHeight || 92;
+    canvas.width = w*dpr; canvas.height = h*dpr;
+    var ctx = canvas.getContext("2d");
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    ctx.clearRect(0,0,w,h);
+    var pad = {l:4,r:4,t:4,b:12};
+    var bw = (w-pad.l-pad.r)/buckets.length;
+    var maxAvg = Math.max.apply(null, buckets.map(function(b){ return b.n ? b.sum/b.n : 0; }).concat([1]));
+    var planDown = parseFloat(els.planDown.value);
+    if(!isNaN(planDown)) maxAvg = Math.max(maxAvg, planDown*0.3);
+
+    buckets.forEach(function(b,i){
+      var avg = b.n ? b.sum/b.n : 0;
+      var bh = b.n ? (avg/maxAvg)*(h-pad.t-pad.b) : 0;
+      var x = pad.l + i*bw;
+      ctx.fillStyle = b.n ? (avg < planDown*0.8 ? C_WARN : C_DOWN) : C_GRID;
+      ctx.globalAlpha = b.n ? 0.85 : 0.4;
+      ctx.fillRect(x+bw*0.18, h-pad.b-bh, bw*0.64, bh || 2);
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = C_FAINT; ctx.font = "8.5px ui-monospace, monospace"; ctx.textAlign="center";
+      ctx.fillText(b.label, x+bw/2, h-2);
+    });
+    ctx.textAlign = "left";
+  }
+
+  // ---------- rendering ----------
+
+  function tagChip(entryIdx, tag){
+    return "<span class=\"tag-chip\" data-idx=\""+entryIdx+"\" data-tag=\""+tag+"\" title=\"Remove tag\">"+tag+" ✕</span>";
+  }
+
+  function renderTable(){
+    var planDown = parseFloat(els.planDown.value);
+    var planUp = parseFloat(els.planUp.value);
+    els.logBody.innerHTML = "";
+    els.emptyMsg.style.display = entries.length ? "none" : "block";
+    for(var i=entries.length-1; i>=0; i--){
+      (function(e, idx){
+        var below = (!isNaN(planDown) && e.down != null && e.down < planDown*0.8) ||
+                    (!isNaN(planUp) && e.up != null && e.up < planUp*0.8);
+        var tr = document.createElement("tr");
+        var rowClasses = [];
+        if(e.outage) rowClasses.push("outage"); else if(below) rowClasses.push("below");
+        if(e.issue) rowClasses.push("issue");
+        tr.className = rowClasses.join(" ");
+        var d = new Date(e.ts);
+        var tsStr = d.toLocaleString();
+        var issueTitle = e.issue ? ((e.issueReasons||[]).join(", ") + (e.issueNote ? " — " + e.issueNote : "")) : "";
+        var statusBadge = (e.outage ? "<span class=\"badge outage\">outage</span>" :
+          (e.error ? "<span class=\"badge err\">error</span>" : (below ? "<span class=\"badge\">below plan</span>" : ""))) +
+          (e.issue ? "<span class=\"badge issue\" title=\""+issueTitle.replace(/"/g,"&quot;")+"\">issue</span>" : "");
+
+        var tagsHtml = e.tags.map(function(t){ return tagChip(idx, t); }).join("");
+        var tagOptions = "<option value=\"\">+ tag</option>" + TAG_PRESETS
+          .filter(function(t){ return e.tags.indexOf(t) === -1; })
+          .map(function(t){ return "<option value=\""+t+"\">"+t+"</option>"; }).join("");
+
+        var cells = [];
+        cells.push("<td>" + (idx+1) + "</td>");
+        cells.push("<td>" + tsStr + statusBadge + "</td>");
+        cells.push("<td class=\"device\" title=\"" + (e.device||"").replace(/"/g,"&quot;") + "\">" + (e.device || "–") + "</td>");
+        cells.push("<td>" + (e.ping != null ? fmt(e.ping,0) : "–") + "</td>");
+        cells.push("<td>" + (e.jitter != null ? fmt(e.jitter,0) : "–") + "</td>");
+        cells.push("<td>" + (e.down != null ? fmt(e.down,1) : "–") + "</td>");
+        cells.push("<td>" + (e.up != null ? fmt(e.up,1) : "–") + "</td>");
+        cells.push("<td>" + (e.down2 != null ? fmt(e.down2,1) : (e.altError ? "err" : "–")) + "</td>");
+        cells.push("<td>" + (e.up2 != null ? fmt(e.up2,1) : "–") + "</td>");
+        cells.push("<td class=\"tags-cell\">" + tagsHtml +
+          "<select class=\"tag-add\" data-idx=\""+idx+"\">"+tagOptions+"</select></td>");
+        cells.push("<td class=\"notes\"><div class=\"free\" contenteditable=\"true\" data-idx=\""+idx+"\">" + (e.notes || "") + "</div></td>");
+        cells.push("<td><button class=\"del\" data-idx=\"" + idx + "\" title=\"Delete entry\" aria-label=\"Delete entry\">✕</button></td>");
+        tr.innerHTML = cells.join("");
+        els.logBody.appendChild(tr);
+      })(entries[i], i);
+    }
+    els.entryCount.textContent = entries.length + (entries.length === 1 ? " entry" : " entries");
+  }
+
+  function movingAverage(values, windowSize){
+    var out = [];
+    for(var i=0;i<values.length;i++){
+      var lo = Math.max(0, i-windowSize+1);
+      var slice = values.slice(lo, i+1).filter(function(v){ return v != null; });
+      out.push(slice.length ? slice.reduce(function(a,b){return a+b;},0)/slice.length : null);
+    }
+    return out;
+  }
+
+  var chartLayout = null;
+
+  function renderChart(hoverIndex){
+    var canvas = els.chart;
+    var dpr = window.devicePixelRatio || 1;
+    var cssWidth = canvas.clientWidth || canvas.parentElement.clientWidth;
+    var cssHeight = canvas.clientHeight || 220;
+    canvas.width = cssWidth * dpr;
+    canvas.height = cssHeight * dpr;
+    var ctx = canvas.getContext("2d");
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    ctx.clearRect(0,0,cssWidth,cssHeight);
+
+    var pad = { l: 40, r: 12, t: 10, b: 24 };
+    var w = cssWidth - pad.l - pad.r;
+    var h = cssHeight - pad.t - pad.b;
+
+    ctx.font = "11px ui-monospace, SFMono-Regular, monospace";
+
+    var cutoff = windowCutoff();
+    var data = entries.filter(function(e){ return new Date(e.ts).getTime() >= cutoff; });
+
+    if(entries.length === 0){
+      ctx.fillStyle = C_AXIS;
+      ctx.fillText("No data yet", pad.l, pad.t + h/2);
+      chartLayout = null;
+      return;
+    }
+    if(data.length === 0){
+      ctx.fillStyle = C_AXIS;
+      ctx.fillText("No data in this time range", pad.l, pad.t + h/2);
+      chartLayout = null;
+      return;
+    }
+
+    var planDown = parseFloat(els.planDown.value);
+    var planUp = parseFloat(els.planUp.value);
+    var maxVal = 1;
+    data.forEach(function(e){
+      if(e.down != null) maxVal = Math.max(maxVal, e.down);
+      if(e.up != null) maxVal = Math.max(maxVal, e.up);
+    });
+    if(!isNaN(planDown)) maxVal = Math.max(maxVal, planDown);
+    if(!isNaN(planUp)) maxVal = Math.max(maxVal, planUp);
+    maxVal = maxVal * 1.15;
+
+    function xFor(i){ return pad.l + (data.length === 1 ? w/2 : (w * i / (data.length-1))); }
+    function yFor(v){ return pad.t + h - (h * v / maxVal); }
+
+    if(!isNaN(planDown) && seriesVisible.zone){
+      var yZone = yFor(planDown);
+      ctx.fillStyle = "rgba(251,191,36,0.08)";
+      ctx.fillRect(pad.l, yZone, w, (pad.t+h) - yZone);
+    }
+
+    ctx.strokeStyle = C_GRID;
+    ctx.lineWidth = 1;
+    var steps = 4;
+    for(var s=0;s<=steps;s++){
+      var v = maxVal * s/steps;
+      var y = yFor(v);
+      ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(pad.l+w, y); ctx.stroke();
+      ctx.fillStyle = C_AXIS;
+      ctx.fillText(Math.round(v), 4, y+3);
+    }
+
+    if(seriesVisible.threshold){
+      ctx.setLineDash([4,3]);
+      ctx.strokeStyle = C_WARN;
+      ctx.globalAlpha = 0.6;
+      [planDown, planUp].forEach(function(v){
+        if(!isNaN(v)){
+          var y = yFor(v);
+          ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(pad.l+w,y); ctx.stroke();
+        }
+      });
+      ctx.globalAlpha = 1;
+      ctx.setLineDash([]);
+    }
+
+    function fillArea(key, color){
+      var grad = ctx.createLinearGradient(0,pad.t,0,pad.t+h);
+      grad.addColorStop(0, color+"33"); grad.addColorStop(1, color+"00");
+      ctx.beginPath();
+      var started = false, lastX = pad.l, firstX = pad.l;
+      data.forEach(function(e,i){
+        var val = e[key]; if(val==null) return;
+        var x=xFor(i), y=yFor(val);
+        if(!started){ ctx.moveTo(x,y); started=true; firstX=x; } else { ctx.lineTo(x,y); }
+        lastX = x;
+      });
+      if(!started) return;
+      ctx.lineTo(lastX, pad.t+h); ctx.lineTo(firstX, pad.t+h); ctx.closePath();
+      ctx.fillStyle = grad; ctx.fill();
+    }
+    if(seriesVisible.down) fillArea("down", C_DOWN);
+    if(seriesVisible.up) fillArea("up", C_UP);
+
+    function drawLine(key, color, dashed){
+      ctx.setLineDash(dashed ? [5,3] : []);
+      ctx.beginPath();
+      var started = false;
+      data.forEach(function(e, i){
+        var val = e[key];
+        if(val == null) return;
+        var x = xFor(i), y = yFor(val);
+        if(!started){ ctx.moveTo(x,y); started = true; } else { ctx.lineTo(x,y); }
+      });
+      ctx.strokeStyle = color;
+      ctx.lineWidth = dashed ? 1.4 : 2;
+      ctx.globalAlpha = dashed ? 0.65 : 1;
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      if(!dashed){
+        data.forEach(function(e, i){
+          if(e[key] == null) return;
+          var x = xFor(i), y = yFor(e[key]);
+          ctx.beginPath(); ctx.arc(x,y,2.2,0,Math.PI*2);
+          ctx.fillStyle = color; ctx.fill();
+        });
+      }
+      ctx.setLineDash([]);
+    }
+
+    var downVals = data.map(function(e){ return e.down; });
+    var upVals = data.map(function(e){ return e.up; });
+    var downAvg = movingAverage(downVals, 5);
+    var upAvg = movingAverage(upVals, 5);
+    var avgData = data.map(function(e,i){ return { down: downAvg[i], up: upAvg[i] }; });
+
+    if(seriesVisible.down) drawLine.call(null, "down", C_DOWN, false);
+    if(seriesVisible.up) drawLine.call(null, "up", C_UP, false);
+    (function(){
+      function drawAvg(key, color){
+        ctx.setLineDash([5,3]);
+        ctx.beginPath();
+        var started = false;
+        avgData.forEach(function(e,i){
+          if(e[key] == null) return;
+          var x = xFor(i), y = yFor(e[key]);
+          if(!started){ ctx.moveTo(x,y); started = true; } else { ctx.lineTo(x,y); }
+        });
+        ctx.strokeStyle = color; ctx.lineWidth = 1.4; ctx.globalAlpha = 0.65;
+        ctx.stroke(); ctx.globalAlpha = 1; ctx.setLineDash([]);
+      }
+      if(seriesVisible.downAvg) drawAvg("down", C_DOWN);
+      if(seriesVisible.upAvg) drawAvg("up", C_UP);
+    })();
+
+    if(seriesVisible.outage){
+      data.forEach(function(e,i){
+        if(!e.outage) return;
+        var x = xFor(i);
+        ctx.setLineDash([3,2]);
+        ctx.strokeStyle = C_BAD;
+        ctx.globalAlpha = 0.75;
+        ctx.beginPath(); ctx.moveTo(x, pad.t); ctx.lineTo(x, pad.t+h); ctx.stroke();
+        ctx.globalAlpha = 1; ctx.setLineDash([]);
+        ctx.fillStyle = C_BAD;
+        ctx.beginPath(); ctx.arc(x, pad.t+h, 3, 0, Math.PI*2); ctx.fill();
+      });
+    }
+    if(seriesVisible.issue){
+      data.forEach(function(e,i){
+        if(!e.issue) return;
+        var x = xFor(i);
+        ctx.fillStyle = C_ISSUE;
+        ctx.beginPath(); ctx.arc(x, pad.t+5, 3.5, 0, Math.PI*2); ctx.fill();
+      });
+    }
+
+    ctx.fillStyle = C_AXIS;
+    [0, Math.floor(data.length/2), data.length-1].forEach(function(i){
+      if(i < 0 || i >= data.length) return;
+      var d = new Date(data[i].ts);
+      var label = d.toLocaleDateString(undefined,{month:"short",day:"numeric"}) + " " + d.toLocaleTimeString(undefined,{hour:"2-digit",minute:"2-digit"});
+      var x = xFor(i);
+      ctx.textAlign = i === 0 ? "left" : (i === data.length-1 ? "right" : "center");
+      ctx.fillText(label, x, cssHeight - 6);
+    });
+    ctx.textAlign = "left";
+
+    chartLayout = { pad: pad, w: w, h: h, cssWidth: cssWidth, cssHeight: cssHeight, count: data.length };
+
+    if(hoverIndex != null && hoverIndex >= 0 && hoverIndex < data.length){
+      var he = data[hoverIndex];
+      var hx = xFor(hoverIndex);
+
+      ctx.setLineDash([3,3]);
+      ctx.strokeStyle = C_GUIDE;
+      ctx.globalAlpha = 0.8;
+      ctx.beginPath(); ctx.moveTo(hx, pad.t); ctx.lineTo(hx, pad.t+h); ctx.stroke();
+      ctx.globalAlpha = 1; ctx.setLineDash([]);
+
+      [["down",C_DOWN],["up",C_UP]].forEach(function(pair){
+        if(!seriesVisible[pair[0]]) return;
+        var val = he[pair[0]];
+        if(val == null) return;
+        var hy = yFor(val);
+        ctx.beginPath(); ctx.arc(hx, hy, 5, 0, Math.PI*2);
+        ctx.fillStyle = C_PANEL_BG; ctx.fill();
+        ctx.lineWidth = 2; ctx.strokeStyle = pair[1]; ctx.stroke();
+      });
+
+      var d = new Date(he.ts);
+      var lines = [ d.toLocaleDateString(undefined,{month:"short",day:"numeric"}) + " " +
+        d.toLocaleTimeString(undefined,{hour:"2-digit",minute:"2-digit",second:"2-digit"}) ];
+      if(he.outage){
+        lines.push("Outage — no connection");
+      } else if(he.error){
+        lines.push("Error: " + he.error);
+      } else {
+        lines.push("Down: " + (he.down != null ? fmt(he.down,1)+" Mbps" : "–"));
+        lines.push("Up: " + (he.up != null ? fmt(he.up,1)+" Mbps" : "–"));
+      }
+      if(he.ping != null){
+        lines.push("Ping: " + fmt(he.ping,0) + " ms" + (he.jitter != null ? " (jitter " + fmt(he.jitter,0) + "ms)" : ""));
+      }
+      if(he.tags && he.tags.length){ lines.push("Tags: " + he.tags.join(", ")); }
+      if(he.issue){ lines.push("Flagged: " + (he.issueReasons||[]).join(", ") + (he.issueNote ? " ("+he.issueNote+")" : "")); }
+      if(he.device){ lines.push("Device: " + he.device); }
+
+      ctx.font = "11px ui-monospace, SFMono-Regular, monospace";
+      var lineH = 14;
+      var boxW = 0;
+      lines.forEach(function(line){ boxW = Math.max(boxW, ctx.measureText(line).width); });
+      boxW += 16;
+      var boxH = lines.length * lineH + 10;
+      var boxX = hx - boxW/2;
+      if(boxX < pad.l) boxX = pad.l;
+      if(boxX + boxW > pad.l + w) boxX = pad.l + w - boxW;
+      var boxY = pad.t + 2;
+
+      ctx.globalAlpha = 0.97;
+      ctx.fillStyle = C_TOOLTIP_BG;
+      ctx.strokeStyle = C_DOWN;
+      ctx.lineWidth = 1;
+      ctx.fillRect(boxX, boxY, boxW, boxH);
+      ctx.strokeRect(boxX+0.5, boxY+0.5, boxW-1, boxH-1);
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = C_TOOLTIP_TEXT;
+      ctx.textAlign = "left";
+      lines.forEach(function(line, i){
+        ctx.fillText(line, boxX + 8, boxY + 12 + i*lineH);
+      });
+      ctx.textAlign = "left";
+    }
+  }
+
+  function renderLegend(){
+    Array.prototype.forEach.call(els.chartLegend.querySelectorAll(".legend-toggle"), function(btn){
+      var key = btn.getAttribute("data-series");
+      btn.classList.toggle("off", !seriesVisible[key]);
+    });
+  }
+
+  function renderAlertInsight(){
+    var flagged = entries.filter(function(e){ return e.issue; });
+    var downs = flagged.filter(function(e){ return e.down != null; }).map(function(e){ return e.down; });
+    var ups = flagged.filter(function(e){ return e.up != null; }).map(function(e){ return e.up; });
+    if(flagged.length === 0){
+      els.alertInsight.textContent = "Flag a few real slowdowns (top bar) and this will suggest a threshold from what you saw.";
+      return;
+    }
+    var parts = [flagged.length + " flagged issue" + (flagged.length===1?"":"s") + " so far."];
+    if(downs.length){
+      parts.push("Download at those moments ranged " + fmt(Math.min.apply(null,downs),0) + "–" + fmt(Math.max.apply(null,downs),0) +
+        " Mbps (median " + fmt(median(downs),0) + ").");
+    }
+    if(ups.length){
+      parts.push("Upload ranged " + fmt(Math.min.apply(null,ups),0) + "–" + fmt(Math.max.apply(null,ups),0) +
+        " Mbps (median " + fmt(median(ups),0) + ").");
+    }
+    els.alertInsight.textContent = parts.join(" ");
+  }
+
+  function renderAll(){
+    renderTable();
+    renderChart();
+    renderSummary();
+    renderLegend();
+    renderHealth();
+    renderOutcomes();
+    renderPeakHours();
+    renderKpiSparks();
+    renderAlertInsight();
+    updateHud(entries.length ? entries[entries.length-1] : null);
+  }
+
+  // ---------- events ----------
+
+  els.chartLegend.addEventListener("click", function(e){
+    var btn = e.target.closest ? e.target.closest(".legend-toggle") : null;
+    if(!btn) return;
+    var key = btn.getAttribute("data-series");
+    if(!(key in seriesVisible)) return;
+    seriesVisible[key] = !seriesVisible[key];
+    saveSettings();
+    renderLegend();
+    renderChart();
+  });
+
+  els.toggleMonitor.addEventListener("click", function(){
+    if(monitoring) stopMonitoring(); else startMonitoring();
+  });
+  els.runNow.addEventListener("click", function(){ runTest(); });
+
+  els.heartbeatToggle.addEventListener("change", function(){
+    heartbeatEnabled = els.heartbeatToggle.checked;
+    saveSettings();
+    if(heartbeatEnabled){ startHeartbeat(); } else { stopHeartbeat(); }
+  });
+
+  els.logBody.addEventListener("click", function(e){
+    if(e.target.classList.contains("del")){
+      var idx = parseInt(e.target.getAttribute("data-idx"), 10);
+      entries.splice(idx, 1);
+      saveEntries(); renderAll();
+    }
+    if(e.target.classList.contains("tag-chip")){
+      var idx2 = parseInt(e.target.getAttribute("data-idx"), 10);
+      var tag = e.target.getAttribute("data-tag");
+      if(entries[idx2]){
+        entries[idx2].tags = entries[idx2].tags.filter(function(t){ return t !== tag; });
+        saveEntries(); renderTable();
+      }
+    }
+  });
+  els.logBody.addEventListener("change", function(e){
+    if(e.target.classList.contains("tag-add") && e.target.value){
+      var idx = parseInt(e.target.getAttribute("data-idx"), 10);
+      if(entries[idx]){
+        entries[idx].tags.push(e.target.value);
+        saveEntries(); renderTable();
+      }
+    }
+  });
+  els.logBody.addEventListener("blur", function(e){
+    if(e.target.classList.contains("free")){
+      var idx = parseInt(e.target.getAttribute("data-idx"), 10);
+      if(entries[idx]){
+        entries[idx].notes = e.target.textContent;
+        saveEntries();
+      }
+    }
+  }, true);
+
+  els.clearLog.addEventListener("click", function(){
+    if(entries.length && confirm("Delete all " + entries.length + " logged entries? This cannot be undone.")){
+      entries = []; saveEntries(); renderAll();
+    }
+  });
+
+  els.exportCsv.addEventListener("click", function(){
+    var rows = [["Timestamp (ISO)","Timestamp","Device","Ping (ms)","Jitter (ms)","Download (Mbps)","Upload (Mbps)","Alt Download (Mbps)","Alt Upload (Mbps)","Outage","Issue","Issue Reasons","Issue Note","Tags","Notes","Error"]];
+    entries.forEach(function(e){
+      rows.push([
+        e.ts,
+        new Date(e.ts).toLocaleString(),
+        e.device || "",
+        e.ping != null ? fmt(e.ping,0) : "",
+        e.jitter != null ? fmt(e.jitter,0) : "",
+        e.down != null ? fmt(e.down,2) : "",
+        e.up != null ? fmt(e.up,2) : "",
+        e.down2 != null ? fmt(e.down2,2) : "",
+        e.up2 != null ? fmt(e.up2,2) : "",
+        e.outage ? "yes" : "",
+        e.issue ? "yes" : "",
+        (e.issueReasons||[]).join("; "),
+        e.issueNote || "",
+        (e.tags||[]).join("; "),
+        (e.notes || "").replace(/"/g,'""'),
+        e.error || ""
+      ]);
+    });
+    var csv = rows.map(function(r){
+      return r.map(function(cell){
+        cell = String(cell);
+        return /[",\n]/.test(cell) ? '"' + cell.replace(/"/g,'""') + '"' : cell;
+      }).join(",");
+    }).join("\n");
+    var blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    var stamp = new Date().toISOString().slice(0,10);
+    a.href = url; a.download = "speed-log-" + stamp + ".csv";
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+
+  function parseCSV(text){
+    var rows = [], row = [], field = "", inQuotes = false;
+    for(var i=0;i<text.length;i++){
+      var c = text[i];
+      if(inQuotes){
+        if(c === '"'){
+          if(text[i+1] === '"'){ field += '"'; i++; }
+          else { inQuotes = false; }
+        } else { field += c; }
+      } else {
+        if(c === '"'){ inQuotes = true; }
+        else if(c === ','){ row.push(field); field = ""; }
+        else if(c === '\n'){ row.push(field); field=""; rows.push(row); row=[]; }
+        else if(c === '\r'){ /* skip */ }
+        else { field += c; }
+      }
+    }
+    if(field.length || row.length){ row.push(field); rows.push(row); }
+    return rows.filter(function(r){ return r.length > 1 || (r.length===1 && r[0] !== ""); });
+  }
+
+  els.importCsv.addEventListener("click", function(){ els.importCsvFile.click(); });
+  els.importCsvFile.addEventListener("change", function(){
+    var file = els.importCsvFile.files && els.importCsvFile.files[0];
+    if(!file) return;
+    var reader = new FileReader();
+    reader.onload = function(){
+      try{
+        var rows = parseCSV(String(reader.result));
+        if(rows.length < 2){ alert("That file doesn't look like a Speed Log CSV export."); return; }
+        var header = rows[0].map(function(h){ return h.trim(); });
+        function idx(name){ return header.indexOf(name); }
+        var iIso = idx("Timestamp (ISO)"), iTs = idx("Timestamp"), iDevice = idx("Device"),
+            iPing = idx("Ping (ms)"), iJitter = idx("Jitter (ms)"), iDown = idx("Download (Mbps)"),
+            iUp = idx("Upload (Mbps)"), iDown2 = idx("Alt Download (Mbps)"), iUp2 = idx("Alt Upload (Mbps)"),
+            iOutage = idx("Outage"), iIssue = idx("Issue"), iIssueReasons = idx("Issue Reasons"),
+            iIssueNote = idx("Issue Note"), iTags = idx("Tags"), iNotes = idx("Notes"), iError = idx("Error");
+        if(iIso === -1 && iTs === -1){ alert("Couldn't find a Timestamp column in that file."); return; }
+
+        function num(v){ if(v == null || v === "") return null; var n = parseFloat(v); return isNaN(n) ? null : n; }
+        var existingTs = {};
+        entries.forEach(function(e){ existingTs[e.ts] = true; });
+
+        var added = 0, skipped = 0;
+        for(var r=1; r<rows.length; r++){
+          var row = rows[r];
+          if(!row || row.length < 2) continue;
+          var tsRaw = iIso !== -1 ? row[iIso] : row[iTs];
+          var tsIso;
+          if(iIso !== -1 && row[iIso]){
+            tsIso = row[iIso];
+          } else {
+            var d = new Date(row[iTs]);
+            if(isNaN(d.getTime())) { skipped++; continue; }
+            tsIso = d.toISOString();
+          }
+          if(existingTs[tsIso]){ skipped++; continue; }
+          var entry = {
+            ts: tsIso,
+            device: iDevice !== -1 ? (row[iDevice]||"") : "",
+            ping: iPing !== -1 ? num(row[iPing]) : null,
+            jitter: iJitter !== -1 ? num(row[iJitter]) : null,
+            down: iDown !== -1 ? num(row[iDown]) : null,
+            up: iUp !== -1 ? num(row[iUp]) : null,
+            down2: iDown2 !== -1 ? num(row[iDown2]) : null,
+            up2: iUp2 !== -1 ? num(row[iUp2]) : null,
+            altError: null,
+            outage: iOutage !== -1 && /^y/i.test(row[iOutage]||""),
+            issue: iIssue !== -1 && /^y/i.test(row[iIssue]||""),
+            issueReasons: iIssueReasons !== -1 && row[iIssueReasons] ? row[iIssueReasons].split(";").map(function(s){return s.trim();}).filter(Boolean) : [],
+            issueNote: iIssueNote !== -1 ? (row[iIssueNote]||"") : "",
+            error: iError !== -1 ? (row[iError]||null) : null,
+            notes: iNotes !== -1 ? (row[iNotes]||"") : "",
+            tags: iTags !== -1 && row[iTags] ? row[iTags].split(";").map(function(s){return s.trim();}).filter(Boolean) : []
+          };
+          entries.push(entry);
+          existingTs[tsIso] = true;
+          added++;
+        }
+        entries.sort(function(a,b){ return new Date(a.ts) - new Date(b.ts); });
+        saveEntries();
+        renderAll();
+        alert("Imported " + added + " new entr" + (added===1?"y":"ies") + (skipped ? " (" + skipped + " already present or unreadable, skipped)" : "") + ".");
+      } catch(err){
+        alert("Couldn't read that file: " + (err && err.message ? err.message : err));
+      } finally {
+        els.importCsvFile.value = "";
+      }
+    };
+    reader.readAsText(file);
+  });
+
+  els.copySummary.addEventListener("click", function(){
+    var text = els.summaryText.textContent;
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(function(){
+        els.copySummary.textContent = "Copied";
+        setTimeout(function(){ els.copySummary.textContent = "Copy summary"; }, 1500);
+      }).catch(function(){ window.prompt("Copy summary:", text); });
+    } else {
+      window.prompt("Copy summary:", text);
+    }
+  });
+
+  els.summaryTabs.addEventListener("click", function(e){
+    if(e.target.classList.contains("tab")){
+      Array.prototype.forEach.call(els.summaryTabs.querySelectorAll(".tab"), function(t){ t.classList.remove("active"); });
+      e.target.classList.add("active");
+      summaryWindow = e.target.getAttribute("data-window");
+      renderSummary();
+      renderChart();
+      renderOutcomes();
+      renderPeakHours();
+      renderHealth();
+    }
+  });
+
+  [els.planDown, els.planUp].forEach(function(el){
+    el.addEventListener("input", function(){ saveSettings(); renderAll(); });
+  });
+  [els.latencyGood, els.latencyPoor, els.jitterGood, els.jitterPoor, els.reliabilityThreshold].forEach(function(el){
+    el.addEventListener("input", function(){ saveSettings(); renderHealth(); updateHud(entries.length?entries[entries.length-1]:null); });
+  });
+  [els.interval, els.testSize, els.altEnabled, els.altSource, els.altUrlCustom].forEach(function(el){
+    el.addEventListener("change", function(){
+      saveSettings();
+      if(monitoring && el === els.interval) scheduleNext();
+    });
+  });
+
+  els.altSource.addEventListener("change", function(){
+    els.altUrlCustomField.style.display = els.altSource.value === "custom" ? "flex" : "none";
+    els.altTestResult.textContent = "";
+  });
+
+  els.testAltSource.addEventListener("click", function(){
+    var base = currentAltBase();
+    if(!base){
+      els.altTestResult.textContent = "Enter a custom base URL first.";
+      els.altTestResult.style.color = "var(--red)";
+      return;
+    }
+    els.testAltSource.disabled = true;
+    els.altTestResult.style.color = "var(--text-dim)";
+    els.altTestResult.textContent = "Testing " + base + " …";
+    var downUrl = base + "/garbage.php?ckSize=1&_=" + Date.now();
+    downloadTest(downUrl).then(function(){
+      return uploadTest(base + "/empty.php", 200000);
+    }).then(function(){
+      els.altTestResult.style.color = "var(--green)";
+      els.altTestResult.textContent = "Reachable — download and upload both responded.";
+    }).catch(function(err){
+      els.altTestResult.style.color = "var(--red)";
+      els.altTestResult.textContent = "Failed: " + ((err && err.message) || "could not reach this source") +
+        ". Try a different server from the list, or double-check a custom URL.";
+    }).then(function(){
+      els.testAltSource.disabled = false;
+    });
+  });
+
+  function openSettingsModal(){
+    els.settingsBackdrop.classList.add("open");
+  }
+  function closeSettingsModal(){
+    els.settingsBackdrop.classList.remove("open");
+  }
+  els.openSettings.addEventListener("click", openSettingsModal);
+  els.openSettingsFromHealth.addEventListener("click", openSettingsModal);
+  els.closeSettings.addEventListener("click", closeSettingsModal);
+  els.settingsBackdrop.addEventListener("click", function(e){
+    if(e.target === els.settingsBackdrop) closeSettingsModal();
+  });
+  function openSummaryModalFn(){
+    els.summaryBackdrop.classList.add("open");
+  }
+  function closeSummaryModalFn(){
+    els.summaryBackdrop.classList.remove("open");
+  }
+  els.openSummaryModal.addEventListener("click", openSummaryModalFn);
+  els.closeSummaryModal.addEventListener("click", closeSummaryModalFn);
+  els.summaryBackdrop.addEventListener("click", function(e){
+    if(e.target === els.summaryBackdrop) closeSummaryModalFn();
+  });
+
+  function openFlagModal(){
+    els.flagResult.textContent = "";
+    els.flagBackdrop.classList.add("open");
+  }
+  function closeFlagModal(){
+    els.flagBackdrop.classList.remove("open");
+  }
+  els.flagIssue.addEventListener("click", openFlagModal);
+  els.closeFlagModal.addEventListener("click", closeFlagModal);
+  els.flagBackdrop.addEventListener("click", function(e){
+    if(e.target === els.flagBackdrop) closeFlagModal();
+  });
+  els.submitFlag.addEventListener("click", function(){
+    var reasons = Array.prototype.map.call(
+      els.flagChecklist.querySelectorAll("input[type=checkbox]:checked"),
+      function(cb){ return cb.value; }
+    );
+    pendingFlag = { reasons: reasons, note: els.flagNote.value.trim() };
+    els.submitFlag.disabled = true;
+    els.flagResult.style.color = "var(--text-dim)";
+    els.flagResult.textContent = "Running test…";
+    runTest().then(function(entry){
+      els.submitFlag.disabled = false;
+      if(!entry){ els.flagResult.textContent = "A test was already running — try again in a moment."; return; }
+      els.flagResult.style.color = "var(--magenta)";
+      els.flagResult.textContent = "Logged: " + (entry.down!=null?fmt(entry.down,0)+" Mbps down, ":"") +
+        (entry.up!=null?fmt(entry.up,0)+" Mbps up":"") + (entry.outage ? "connection unreachable" : "") + ".";
+      Array.prototype.forEach.call(els.flagChecklist.querySelectorAll("input[type=checkbox]"), function(cb){ cb.checked = false; });
+      els.flagNote.value = "";
+      setTimeout(closeFlagModal, 1800);
+    });
+  });
+
+  document.addEventListener("keydown", function(e){
+    if(e.key === "Escape"){
+      if(els.settingsBackdrop.classList.contains("open")) closeSettingsModal();
+      if(els.summaryBackdrop.classList.contains("open")) closeSummaryModalFn();
+      if(els.flagBackdrop.classList.contains("open")) closeFlagModal();
+    }
+  });
+
+  window.addEventListener("resize", function(){ renderChart(); renderKpiSparks(); renderHealth(); renderOutcomes(); renderPeakHours(); });
+
+  els.chart.addEventListener("pointermove", function(e){
+    if(!chartLayout) return;
+    var rect = els.chart.getBoundingClientRect();
+    var mouseX = e.clientX - rect.left;
+    var pad = chartLayout.pad, w = chartLayout.w, count = chartLayout.count;
+    if(count < 1) return;
+    var idx = count === 1 ? 0 : Math.round((mouseX - pad.l) / w * (count - 1));
+    idx = Math.max(0, Math.min(count - 1, idx));
+    renderChart(idx);
+  });
+  els.chart.addEventListener("pointerleave", function(){ renderChart(); });
+
+  // ---------- init ----------
+  loadSettings();
+  loadEntries();
+  renderAll();
+  if(heartbeatEnabled) startHeartbeat();
+})();
+</script>
+</body>
+</html>
