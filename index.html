@@ -114,7 +114,7 @@
   /* ---- main layout ---- */
   .main-row{flex:1 1 auto;display:grid;grid-template-columns:1fr 390px;gap:10px;min-height:0;overflow:hidden;}
   .col{min-height:0;display:flex;flex-direction:column;gap:8px;}
-  .col-side{overflow-y:auto;}
+  .col-side{overflow:hidden;}
 
   .icon-btn{padding:8px 9px;display:flex;align-items:center;justify-content:center;}
   .icon-btn svg{width:16px;height:16px;}
@@ -144,7 +144,7 @@
   .tab.active{background:var(--cyan);color:#06222A;border-color:var(--cyan);font-weight:700;}
 
   /* ---- chart panel ---- */
-  .chart-panel{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;}
+  .chart-panel{flex:3 1 0;min-height:180px;display:flex;flex-direction:column;}
   .chart-canvas-wrap{flex:1 1 auto;min-height:0;position:relative;}
   canvas#chart{width:100%;height:100%;display:block;cursor:crosshair;}
   .legend{flex:0 0 auto;display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
@@ -157,9 +157,10 @@
   .swatch.dash{background:repeating-linear-gradient(90deg,currentColor 0 4px,transparent 4px 7px);}
 
   /* ---- health panel ---- */
-  .health-body{display:flex;gap:9px;align-items:flex-start;}
-  canvas#healthRadar{flex:0 0 98px;width:98px;height:98px;}
-  .health-list{flex:1;display:flex;flex-direction:column;gap:7px;min-width:0;}
+  .health-body{display:flex;gap:9px;align-items:center;flex:1 1 auto;min-height:0;}
+  .radar-wrap{flex:0 0 42%;align-self:stretch;position:relative;min-height:90px;}
+  .radar-wrap canvas,.mini-fill canvas{position:absolute;inset:0;width:100%;height:100%;display:block;}
+  .health-list{flex:1;display:flex;flex-direction:column;justify-content:space-around;align-self:stretch;gap:5px;min-width:0;}
   .health-row{display:flex;align-items:flex-start;gap:6px;font-family:var(--mono);font-size:10.5px;}
   .health-dot{width:7px;height:7px;border-radius:50%;flex:none;margin-top:2px;}
   .health-dot.good{background:var(--green);} .health-dot.warn{background:var(--amber);}
@@ -176,11 +177,11 @@
   .threshold-grid .field{margin-bottom:0;}
 
   /* ---- mini widgets row ---- */
-  .mini-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-  canvas#outcomesDonut{width:100%;height:60px;}
+  .mini-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;flex:1 1 auto;min-height:0;}
+  .mini-cell{display:flex;flex-direction:column;min-height:0;}
+  .mini-fill{flex:1 1 0;min-height:56px;position:relative;}
   .donut-legend{display:flex;flex-direction:column;gap:4px;margin-top:6px;font-family:var(--mono);font-size:10.5px;color:var(--text-dim);}
   .donut-legend span.sw{width:8px;height:8px;border-radius:2px;display:inline-block;margin-right:5px;}
-  canvas#peakHourChart{width:100%;height:60px;}
 
   /* ---- stat grid ---- */
   .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);border:1px solid var(--border);
@@ -188,13 +189,18 @@
   .stat-grid .cell{background:var(--panel);padding:8px 9px;}
   .stat-grid .cell .label{font-family:var(--mono);font-size:8.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--text-faint);}
   .stat-grid .cell .value{font-family:var(--mono);font-size:16px;font-weight:700;margin-top:2px;}
-  .stat-grid.compact .cell{padding:7px 9px;}
-  .stat-grid.compact .cell .value{font-size:14px;}
+  .stat-grid.compact{flex:1 1 auto;min-height:0;grid-auto-rows:1fr;}
+  .stat-grid.compact .cell{padding:7px 9px;display:flex;flex-direction:column;justify-content:center;}
+  .stat-grid.compact .cell .value{font-size:clamp(14px,2.1vh,22px);}
   .summary-text{font-family:var(--mono);font-size:11px;line-height:1.65;color:var(--text-dim);background:var(--bg);
     border:1px solid var(--border);border-radius:9px;padding:8px;margin-top:9px;}
 
   /* ---- log ---- */
-  .log-row{flex:0 0 18%;min-height:76px;display:flex;flex-direction:column;}
+  .col-side > .panel{display:flex;flex-direction:column;min-height:0;overflow:hidden;}
+  .col-side > .panel:nth-child(1){flex:1.1 1 auto;}
+  .col-side > .panel:nth-child(2){flex:1.5 1 auto;}
+  .col-side > .panel:nth-child(3){flex:1 1 auto;}
+  .log-row{flex:2 1 0;min-height:170px;display:flex;flex-direction:column;}
   .log-panel{flex:1;display:flex;flex-direction:column;min-height:0;}
   .table-scroll{flex:1;overflow:auto;border:1px solid var(--border);border-radius:10px;}
   table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px;}
@@ -226,11 +232,23 @@
   .del{color:var(--text-faint);cursor:pointer;font-family:var(--mono);border:none;background:none;font-size:12px;}
   .del:hover{color:var(--red);}
   .empty{padding:20px;text-align:center;color:var(--text-faint);font-size:11.5px;font-family:var(--mono);}
-  .log-footer{flex:0 0 auto;display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;
-    gap:10px;margin-top:8px;}
+  .log-head{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:8px;}
+  .log-head-left{display:flex;align-items:baseline;gap:12px;flex:none;}
+  .log-title{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-dim);}
+  .log-actions{display:flex;gap:8px;flex:none;}
   .count{font-family:var(--mono);font-size:10px;color:var(--text-faint);}
-  .method-note{font-family:var(--mono);font-size:9px;color:var(--text-faint);line-height:1.5;max-width:560px;}
+  .method-note{font-family:var(--mono);font-size:9px;color:var(--text-faint);line-height:1.4;flex:1 1 auto;min-width:0;text-align:center;}
 
+  @media (max-height:820px){
+    .dashboard{gap:6px;padding:6px 10px 8px;}
+    .kpi-card{padding:5px 10px;}
+    .panel{padding:8px 11px;}
+    .panel-title{margin-bottom:6px;}
+    .health-list{gap:2px;}
+    .donut-legend{flex-direction:row;flex-wrap:wrap;gap:2px 10px;margin-top:4px;}
+    tbody td{padding:4px 8px;}
+    thead th{padding:5px 8px;}
+  }
   @media (max-width:1060px){
     html,body{height:auto;overflow:auto;}
     .dashboard{height:auto;}
@@ -342,6 +360,35 @@
           <button class="legend-toggle" data-series="issue"><span class="swatch" style="background:var(--magenta)"></span>Flagged issue</button>
         </div>
       </div>
+      <div class="log-row">
+        <div class="panel log-panel">
+          <div class="log-head">
+            <div class="log-head-left"><span class="log-title">Log</span><span class="count" id="entryCount">0 entries</span></div>
+            <div class="method-note">
+              Primary via Cloudflare; secondary via LibreSpeed-compatible backend when enabled. Outage = primary
+              unreachable for a scheduled test.
+            </div>
+            <div class="log-actions">
+              <button class="btn tiny" id="importCsv">Import CSV</button>
+              <input type="file" id="importCsvFile" accept=".csv" style="display:none;">
+              <button class="btn tiny" id="exportCsv">Export CSV</button>
+              <button class="btn tiny danger" id="clearLog">Clear log</button>
+            </div>
+          </div>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th><th>Timestamp</th><th>Device</th><th>Ping</th><th>Jitter</th><th>Down</th><th>Up</th>
+                  <th>Alt Down</th><th>Alt Up</th><th>Tags</th><th>Notes</th><th></th>
+                </tr>
+              </thead>
+              <tbody id="logBody"></tbody>
+            </table>
+            <div class="empty" id="emptyMsg">No entries yet — run a test to begin the log.</div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="col col-side">
@@ -350,21 +397,21 @@
           <span class="note"><button class="link-btn" id="openSettingsFromHealth">edit thresholds</button></span>
         </div>
         <div class="health-body">
-          <canvas id="healthRadar"></canvas>
+          <div class="radar-wrap"><canvas id="healthRadar"></canvas></div>
           <div class="health-list" id="healthList"></div>
         </div>
       </div>
 
       <div class="panel">
         <div class="mini-row">
-          <div>
+          <div class="mini-cell">
             <div class="panel-title" style="margin-bottom:4px;">Test outcomes</div>
-            <canvas id="outcomesDonut"></canvas>
+            <div class="mini-fill"><canvas id="outcomesDonut"></canvas></div>
             <div class="donut-legend" id="outcomesLegend"></div>
           </div>
-          <div>
+          <div class="mini-cell">
             <div class="panel-title" style="margin-bottom:4px;">Download by hour</div>
-            <canvas id="peakHourChart"></canvas>
+            <div class="mini-fill"><canvas id="peakHourChart"></canvas></div>
           </div>
         </div>
       </div>
@@ -374,37 +421,6 @@
           <span class="note"><button class="link-btn" id="openSummaryModal">full report</button></span>
         </div>
         <div class="stat-grid compact" id="statGridCompact"></div>
-      </div>
-    </div>
-  </div>
-
-  <div class="log-row">
-    <div class="panel log-panel">
-      <div class="panel-title">Log</div>
-      <div class="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>#</th><th>Timestamp</th><th>Device</th><th>Ping</th><th>Jitter</th><th>Down</th><th>Up</th>
-              <th>Alt Down</th><th>Alt Up</th><th>Tags</th><th>Notes</th><th></th>
-            </tr>
-          </thead>
-          <tbody id="logBody"></tbody>
-        </table>
-        <div class="empty" id="emptyMsg">No entries yet — run a test to begin the log.</div>
-      </div>
-      <div class="log-footer">
-        <div class="count" id="entryCount">0 entries</div>
-        <div class="method-note">
-          Primary via Cloudflare; secondary via LibreSpeed-compatible backend when enabled. Outage = primary
-          unreachable for a scheduled test.
-        </div>
-        <div style="display:flex;gap:8px;">
-          <button class="btn tiny" id="importCsv">Import CSV</button>
-          <input type="file" id="importCsvFile" accept=".csv" style="display:none;">
-          <button class="btn tiny" id="exportCsv">Export CSV</button>
-          <button class="btn tiny danger" id="clearLog">Clear log</button>
-        </div>
       </div>
     </div>
   </div>
@@ -1292,12 +1308,14 @@
 
     var canvas = els.healthRadar;
     var dpr = window.devicePixelRatio || 1;
-    var size = canvas.clientWidth || 128;
-    canvas.width = size*dpr; canvas.height = size*dpr;
+    var cw = canvas.clientWidth || 128, ch = canvas.clientHeight || 128;
+    var size = Math.min(cw, ch);
+    canvas.width = cw*dpr; canvas.height = ch*dpr;
     var ctx = canvas.getContext("2d");
     ctx.setTransform(dpr,0,0,dpr,0,0);
-    ctx.clearRect(0,0,size,size);
-    var cx = size/2, cy = size/2, r = size/2 - 14;
+    ctx.clearRect(0,0,cw,ch);
+    var cx = cw/2, cy = ch/2, r = Math.max(20, size/2 - 26);
+    var shortLabel = { Download:"Dn", Upload:"Up", Latency:"Lat", Jitter:"Jit", Reliability:"Rel" };
     var n = dims.length;
     function angle(i){ return -Math.PI/2 + i*(2*Math.PI/n); }
     function pt(i, pct){ var a=angle(i); var rr=r*pct/100; return [cx+rr*Math.cos(a), cy+rr*Math.sin(a)]; }
@@ -1312,9 +1330,9 @@
       var p = pt(i,100);
       ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(p[0],p[1]); ctx.stroke();
       ctx.fillStyle = C_FAINT; ctx.font = "9px ui-monospace, monospace";
-      var lp = pt(i, 118);
+      var lp = pt(i, 100*(r+9)/r);
       ctx.textAlign = Math.abs(lp[0]-cx)<4 ? "center" : (lp[0]>cx ? "left" : "right");
-      ctx.fillText(dims[i].label.slice(0,4), lp[0], lp[1]+3);
+      ctx.fillText(shortLabel[dims[i].label] || dims[i].label.slice(0,3), lp[0], lp[1]+3);
     }
 
     ctx.beginPath();
