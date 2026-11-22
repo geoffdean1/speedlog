@@ -410,8 +410,8 @@
             <div class="donut-legend" id="outcomesLegend"></div>
           </div>
           <div class="mini-cell">
-            <div class="panel-title" style="margin-bottom:4px;">Download by hour</div>
-            <div class="mini-fill"><canvas id="peakHourChart"></canvas></div>
+            <div class="panel-title" style="margin-bottom:4px;">Avg download <span class="note">Mbps</span></div>
+            <div class="mini-fill" title="Average download speed per 4-hour block of the day (12A = midnight to 4 AM, 4P = 4 to 8 PM). Bars turn amber when the average is below 80% of your plan speed."><canvas id="peakHourChart"></canvas></div>
           </div>
         </div>
       </div>
@@ -1429,7 +1429,7 @@
     var ctx = canvas.getContext("2d");
     ctx.setTransform(dpr,0,0,dpr,0,0);
     ctx.clearRect(0,0,w,h);
-    var pad = {l:4,r:4,t:4,b:12};
+    var pad = {l:4,r:4,t:14,b:12};
     var bw = (w-pad.l-pad.r)/buckets.length;
     var maxAvg = Math.max.apply(null, buckets.map(function(b){ return b.n ? b.sum/b.n : 0; }).concat([1]));
     var planDown = parseFloat(els.planDown.value);
@@ -1443,6 +1443,10 @@
       ctx.globalAlpha = b.n ? 0.85 : 0.4;
       ctx.fillRect(x+bw*0.18, h-pad.b-bh, bw*0.64, bh || 2);
       ctx.globalAlpha = 1;
+      if(b.n){
+        ctx.fillStyle = C_TOOLTIP_TEXT; ctx.font = "9px ui-monospace, monospace"; ctx.textAlign="center";
+        ctx.fillText(Math.round(avg), x+bw/2, h-pad.b-bh-3);
+      }
       ctx.fillStyle = C_FAINT; ctx.font = "8.5px ui-monospace, monospace"; ctx.textAlign="center";
       ctx.fillText(b.label, x+bw/2, h-2);
     });
