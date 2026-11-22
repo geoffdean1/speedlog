@@ -255,6 +255,10 @@
       <button class="btn" id="runNow">Run test now</button>
       <button class="btn flag-btn" id="flagIssue">⚠ Flag issue</button>
       <button class="btn primary" id="toggleMonitor">Start monitoring</button>
+      <button class="btn icon-btn" id="toggleFullscreen" title="Full screen (F)" aria-label="Toggle full screen" style="display:none;">
+        <svg id="fsIconEnter" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+        <svg id="fsIconExit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/></svg>
+      </button>
       <button class="btn icon-btn" id="openSettings" title="Settings" aria-label="Settings">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
       </button>
@@ -609,6 +613,7 @@
    "kpiPingSpark","kpiJitterSpark","kpiDownSpark","kpiUpSpark",
    "healthRadar","healthList","latencyGood","latencyPoor","jitterGood","jitterPoor","reliabilityThreshold",
    "outcomesDonut","outcomesLegend","peakHourChart","openSummaryModal","closeSummaryModal","summaryBackdrop",
+   "toggleFullscreen","fsIconEnter","fsIconExit",
    "openSettings","closeSettings","settingsBackdrop","openSettingsFromHealth",
    "deviceLabel","alertDownMbps","alertUpMbps","enableAlarm","alertInsight",
    "flagIssue","flagBackdrop","closeFlagModal","flagChecklist","flagNote","submitFlag","flagResult","exportCsv","importCsv","importCsvFile"
@@ -2071,7 +2076,42 @@
     });
   });
 
+  // ---------- full screen ----------
+  var fsRoot = document.documentElement;
+  var fsSupported = !!(fsRoot.requestFullscreen || fsRoot.webkitRequestFullscreen);
+  function fsElement(){ return document.fullscreenElement || document.webkitFullscreenElement || null; }
+  function toggleFullscreen(){
+    if(!fsSupported) return;
+    try{
+      if(fsElement()){
+        (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+      } else {
+        var p = (fsRoot.requestFullscreen || fsRoot.webkitRequestFullscreen).call(fsRoot);
+        if(p && p.catch) p.catch(function(){});
+      }
+    }catch(e){}
+  }
+  function syncFullscreenUi(){
+    var on = !!fsElement();
+    els.fsIconEnter.style.display = on ? "none" : "";
+    els.fsIconExit.style.display = on ? "" : "none";
+    els.toggleFullscreen.title = on ? "Exit full screen (F or Esc)" : "Full screen (F)";
+    // canvases size from layout, so redraw once the new size has settled
+    setTimeout(function(){ renderChart(); renderKpiSparks(); renderHealth(); renderOutcomes(); renderPeakHours(); }, 120);
+  }
+  if(fsSupported){
+    els.toggleFullscreen.style.display = "";
+    els.toggleFullscreen.addEventListener("click", toggleFullscreen);
+    document.addEventListener("fullscreenchange", syncFullscreenUi);
+    document.addEventListener("webkitfullscreenchange", syncFullscreenUi);
+  }
+
   document.addEventListener("keydown", function(e){
+    if((e.key === "f" || e.key === "F") && !e.ctrlKey && !e.metaKey && !e.altKey){
+      var t = e.target, tag = t && t.tagName ? t.tagName.toLowerCase() : "";
+      var typing = tag === "input" || tag === "textarea" || tag === "select" || (t && t.isContentEditable);
+      if(!typing){ e.preventDefault(); toggleFullscreen(); return; }
+    }
     if(e.key === "Escape"){
       if(els.settingsBackdrop.classList.contains("open")) closeSettingsModal();
       if(els.summaryBackdrop.classList.contains("open")) closeSummaryModalFn();
